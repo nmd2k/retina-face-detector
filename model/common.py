@@ -44,13 +44,48 @@ class Conv_BN(nn.Module):
         return x
 
 class MobileNetV1(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels=3, out_channels=1000, start_frame=32):
         super(MobileNetV1, self).__init__()
+        self.in_channels  = in_channels
+        self.out_channels = out_channels
+        self.start_frame  = start_frame
 
-        pass
+        self.stage1 = nn.Sequential(                            # Input channels-Output channels
+            Conv_BN(in_channels, start_frame, 2, leaky=0.1),    # 3-32
+            Conv_DW(start_frame, start_frame*2),                # 32-64
+            Conv_DW(start_frame*2, start_frame*4, stride=2),    # 64-128
+            Conv_DW(start_frame*4, start_frame*4),              # 128-128
+            Conv_DW(start_frame*4, start_frame*8, stride=2),    # 128-256
+            Conv_DW(start_frame*8, start_frame*8),              # 256-256
+        )
+        
+        self.stage2 = nn.Sequential(
+            Conv_DW(start_frame*8, start_frame*16, stride=2),   # 256-512
+            Conv_DW(start_frame*16, start_frame*16),            # 512-512
+            Conv_DW(start_frame*16, start_frame*16),            # 512-512
+            Conv_DW(start_frame*16, start_frame*16),            # 512-512
+            Conv_DW(start_frame*16, start_frame*16),            # 512-512
+            Conv_DW(start_frame*16, start_frame*16),            # 512-512
+        )
+
+        self.stage3 = nn.Sequential(
+            Conv_DW(start_frame*16, start_frame*32, stride=2),  # 512-1024
+            Conv_DW(start_frame*32, start_frame*32)             # 1024-1024
+        )
+
+        self.avg    = nn.AdaptiveAvgPool2d((1,1))
+        self.fc     = nn.Linear(start_frame*32, out_channels)   # 1024-1000
 
     def forward(self, input):
-        pass
+        x = self.stage1(input)
+        x = self.stage2(x)
+        x = self.stage3(x)
+        x = self.avg(x)
+
+        x = x.view(-1, self.start_frame*32)
+        x = self.fc(x)
+        
+        return x
 
 class MobileNetV2(nn.Module):
     def __init__(self):
