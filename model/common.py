@@ -27,10 +27,10 @@ class Conv_DW(nn.Module):
         return x
 
 class Conv_BN(nn.Module):
-    def __init__(self, in_channels, out_channels, stride=1, leaky=0, activation=True):
+    def __init__(self, in_channels, out_channels, kernel=3, stride=1, padding=1, leaky=0, activation=True):
         super(Conv_BN, self).__init__()
 
-        self.conv  = nn.Conv2d(in_channels, out_channels, 3, stride, 1, bias=False),
+        self.conv  = nn.Conv2d(in_channels, out_channels, kernel, stride, padding, bias=False),
         self.bn    = nn.BatchNorm2d(out_channels),
         self.leaky = nn.LeakyReLU(negative_slope=leaky, inplace=True)
 
@@ -51,7 +51,7 @@ class MobileNetV1(nn.Module):
         self.start_frame  = start_frame
 
         self.stage1 = nn.Sequential(                            # Input channels-Output channels
-            Conv_BN(in_channels, start_frame, 2, leaky=0.1),    # 3-32
+            Conv_BN(in_channels, start_frame, stride=2, leaky=0.1),    # 3-32
             Conv_DW(start_frame, start_frame*2),                # 32-64
             Conv_DW(start_frame*2, start_frame*4, stride=2),    # 64-128
             Conv_DW(start_frame*4, start_frame*4),              # 128-128
