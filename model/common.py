@@ -170,7 +170,7 @@ class MobileNetV1(nn.Module):
 
 class MobileNetV2(nn.Module):
     def __init__(self):
-        super(MobileNetV1, self).__init__()
+        super(MobileNetV2, self).__init__()
 
         pass
 

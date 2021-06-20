@@ -5,35 +5,44 @@ import torch.nn.functional as F
 from model.common import MobileNetV1, MobileNetV2, ResNet50
 
 class ClassHead(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, num_anchors=3):
         """
         Face classification 
         """
-        super().__init__()
+        super(ClassHead, self).__init__()
+        self.conv        = nn.Conv2d(in_channels, num_anchors*2, 1)
 
     def forward(self, input):
-
-        pass
+        out = self.conv(input)
+        out = out.permute(0,2,3,1).contiguous()
+        return out.view(out.shape[0], -1, 2)
 
 class BboxHead(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, num_anchors=3):
         """
         Face bounding box
         """
-        super().__init__()
+        super(BboxHead, self).__init__()
+        self.conv        = nn.Conv2d(in_channels, num_anchors*4, 1)
 
     def forward(self, input):
-        pass
+        out = self.conv(input)
+        out = out.permute(0,2,3,1).contiguous()
+        return out.view(out.shape[0], -1, 4)
 
 class LandmarkHead(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, num_anchors=3):
         """
         Facial landmark
         """
-        super().__init__()
+        super(LandmarkHead, self).__init__()
+        # 5 (x, y) refer to coordinate of 5 landmarks
+        self.conv = nn.Conv2d(in_channels, num_anchors*10, 1)
 
     def forward(self, input):
-        pass
+        out = self.conv(input)
+        out = out.permute(0,2,3,1).contiguous()
+        return out.view(out.shape[0], -1, 10)
 
 class RetinaFace(nn.Module):
     def __init__(self, backbone='MBNv1'):
