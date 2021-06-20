@@ -43,6 +43,40 @@ class Conv_BN(nn.Module):
             x = self.leaky(x)
         return x
 
+class SSH(nn.Module):
+    def __init__(self, in_channels, out_channels, leaky=0):
+        super(SSH, self).__init__()
+        assert out_channels%4 == 0
+        self.conv1_1       = Conv_BN(in_channels, out_channels//2, activation=False)
+
+        self.conv1_2      = Conv_BN(in_channels, out_channels//4)
+        self.conv2_2      = Conv_BN(out_channels//4, out_channels//4, activation=False)
+
+        self.conv2_3      = Conv_BN(out_channels//4, out_channels//4)
+        self.conv3_3      = Conv_BN(out_channels//4, out_channels//4, activation=False)
+
+    def forward(self, input):
+        # block 1
+        C1_1 = self.conv1_1(input)
+        C1_2 = self.conv1_2(input)
+
+        # block 2
+        C2_2 = self.conv2_2(C1_2)
+        C2_3 = self.conv2_3(C1_2)
+
+        # block 3
+        C3_3 = self.conv3_3(C2_3)
+
+        out = torch.cat([C1_1, C2_2, C3_3], dim=1)
+        return F.relu(out)
+
+class FPN(nn.Module):
+    def __init__(self):
+        super(FPN, self).__init__()
+
+    def forward(self, input):
+        pass
+
 class MobileNetV1(nn.Module):
     def __init__(self, in_channels=3, out_channels=1000, start_frame=32):
         super(MobileNetV1, self).__init__()

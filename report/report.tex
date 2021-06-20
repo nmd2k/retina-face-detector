@@ -1,0 +1,127 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LaTeX Template: Project Titlepage Modified (v 0.1) by rcx
+%
+% Original Source: http://www.howtotex.com
+% Date: February 2014
+% 
+% This is a title page template which be used for articles & reports.
+% 
+% This is the modified version of the original Latex template from
+% aforementioned website.
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[12pt]{article}
+\usepackage[a4paper]{geometry}
+\usepackage[myheadings]{fullpage}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{graphicx, wrapfig, subcaption, setspace, booktabs}
+\usepackage[T1]{fontenc}
+\usepackage[font=small, labelfont=bf]{caption}
+\usepackage{fourier}
+\usepackage[protrusion=true, expansion=true]{microtype}
+\usepackage{sectsty}
+\usepackage{commath}
+\usepackage{url, lipsum}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage[english]{babel}
+\usepackage{csquotes}
+\usepackage[sorting=none,backend=bibtex]{biblatex}
+\addbibresource{cite.bib}
+
+\newcommand{\source}[1]{\caption*{Source: \emph{#1}} }
+\newcommand{\HRule}[1]{\rule{\linewidth}{#1}}
+\onehalfspacing
+\setcounter{tocdepth}{5}
+\setcounter{secnumdepth}{5}
+
+%-------------------------------------------------------------------------------
+% HEADER & FOOTER
+%-------------------------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\setlength\headheight{15pt}
+\fancyhead[L]{Advanced problems in Computer Science}
+\fancyhead[R]{Object Detection in Deep learning}
+\fancyfoot[R]{\center{\thepage}}
+%-------------------------------------------------------------------------------
+% TITLE PAGE
+%-------------------------------------------------------------------------------
+
+\begin{document}
+
+\title{ \normalsize \textsc{PROJECT REPORT\\
+    Viettel Digitals Talents Program}
+\\ [5.0cm]
+\HRule{0.5pt} \\
+\LARGE \textbf{\uppercase{Improving FACE DETECTION accuracy with RetinaFace 
+on WIDER FACE DATASET}}
+\HRule{2pt} \\ [0.5 cm]
+\normalsize  \vspace*{5\baselineskip}}
+
+\date{
+    \large{Hanoi, 06/2021}
+}
+
+\author{
+    Dung Nguyen Manh \\
+}
+
+\newpage
+\maketitle
+
+%-------------------------------------------------------------------------------
+% Section title formatting
+\sectionfont{\scshape}
+%-------------------------------------------------------------------------------
+
+\newpage
+\tableofcontents
+\newpage
+
+%-------------------------------------------------------------------------------
+% ABSTRACTION
+%-------------------------------------------------------------------------------
+
+\begin{abstract}
+    Begin abstract
+\end{abstract}
+
+
+%-------------------------------------------------------------------------------
+% INTRODUCTION
+%-------------------------------------------------------------------------------
+
+\section{Introduction}
+\label{sec:intro}
+
+%-------------------------------------------------------------------------------
+% RELATED WORK
+%-------------------------------------------------------------------------------
+
+\section{Related Work}
+\label{sec:relate}
+
+%-------------------------------------------------------------------------------
+% RetinaFace
+%-------------------------------------------------------------------------------
+
+\section{RetinaFace}
+\label{sec:retina}
+
+%-------------------------------------------------------------------------------
+% EXPERIMENTS
+%-------------------------------------------------------------------------------
+
+\section{Experiments}
+\label{sec:exper}
+
+%-------------------------------------------------------------------------------
+% REFERENCES
+%-------------------------------------------------------------------------------
+\newpage
+\printbibliography
+
+\end{document}

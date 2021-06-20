@@ -2,3 +2,11 @@
 /data/train
 /data/val
 */__pycache__
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
