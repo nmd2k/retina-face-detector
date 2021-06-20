@@ -71,11 +71,58 @@ class SSH(nn.Module):
         return F.relu(out)
 
 class FPN(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels_list, out_channels, leaky=0):
+        """
+        Module that adds a FPN from on top of a set of feature maps. This is based on
+        `"Feature Pyramid Network for Object Detection" <https://arxiv.org/abs/1612.03144>`_.
+
+        The feature maps are currently supposed to be in increasing depth
+        order.
+
+        The input to the model is expected to be an OrderedDict[Tensor], containing
+        the feature maps on top of which the FPN will be added.
+
+        Args:
+            in_channels_list (list[int]): number of channels for each feature map that
+                is passed to the module
+            out_channels (int): number of channels of the FPN representation
+        """
         super(FPN, self).__init__()
+        assert len(in_channels_list) == 3
+        self.layer_feature_1 = Conv_BN(in_channels_list[0], out_channels, 1, leaky=leaky)
+        self.layer_feature_2 = Conv_BN(in_channels_list[1], out_channels, 1, leaky=leaky)
+        self.layer_feature_3 = Conv_BN(in_channels_list[2], out_channels, 1, leaky=leaky)
+
+        self.merge           = Conv_BN(out_channels, out_channels, leaky=leaky)
 
     def forward(self, input):
-        pass
+        """
+        Computes the FPN for a set of feature maps.
+
+        Args:
+            x (OrderedDict[Tensor]): feature maps for each feature level.
+
+        Returns:
+            results (OrderedDict[Tensor]): feature maps after FPN layers.
+                They are ordered from highest resolution first.
+        """
+        # unpack OrderedDict into two lists
+        names   = list(input.keys())
+        input   = list(input.values())
+
+        output1 = self.layer_feature_1(input[0])
+        output2 = self.layer_feature_2(input[1])
+        output3 = self.layer_feature_3(input[2])
+
+        up3     = F.interpolate(output3, size=[output2.size(2), output2.size(3)], mode="nearest")
+        output2 = output2 + up3
+        output2 = self.merge(output2)
+
+        up2     = F.interpolate(output2, size=[output1.size(2), output1.size(3)], mode="nearest")
+        output1 = output1 + up2
+        output1 = self.merge(output1)
+
+        return [output1, output2, output3]
 
 class MobileNetV1(nn.Module):
     def __init__(self, in_channels=3, out_channels=1000, start_frame=32):
