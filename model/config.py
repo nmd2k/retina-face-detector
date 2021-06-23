@@ -19,7 +19,9 @@ START_FRAME         = 8
 LEARNING_RATE       = 1e-3
 WEIGHT_DECAY        = 5e-4
 MOMENTUM            = 0.9
-
+RETURN_LAYERS       =  {'stage1': 1, 'stage2': 2, 'stage3': 3}
+IN_CHANNELS         = 32
+OUT_CHANNELS        = 64
 
 # CRITERION config ==========
 OVERLAP_THRES       = 0.35

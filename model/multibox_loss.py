@@ -6,8 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from utils.box_utils import match, log_sum_exp
-from data import cfg_mnet
-GPU = cfg_mnet['gpu_train']
 
 class MultiBoxLoss(nn.Module):
     """SSD Weighted Loss Function
@@ -63,9 +61,9 @@ class MultiBoxLoss(nn.Module):
         num_priors = (priors.size(0))
 
         # match priors (default boxes) and ground truth boxes
-        loc_t = torch.Tensor(num, num_priors, 4)
+        loc_t   = torch.Tensor(num, num_priors, 4)
         landm_t = torch.Tensor(num, num_priors, 10)
-        conf_t = torch.LongTensor(num, num_priors)
+        conf_t  = torch.LongTensor(num, num_priors)
         for idx in range(num):
             truths = targets[idx][:, :4].data
             labels = targets[idx][:, -1].data
@@ -73,8 +71,8 @@ class MultiBoxLoss(nn.Module):
             defaults = priors.data
             match(self.threshold, truths, defaults, self.variance, labels, landms, loc_t, conf_t, landm_t, idx)
 
-            loc_t = loc_t.to(self.device)
-            conf_t = conf_t.to(self.device)
+            loc_t   = loc_t.to(self.device)
+            conf_t  = conf_t.to(self.device)
             landm_t = landm_t.to(self.device)
 
         zeros = torch.tensor(0).to(self.device)
@@ -87,7 +85,6 @@ class MultiBoxLoss(nn.Module):
         landm_p = landm_data[pos_idx1].view(-1, 10)
         landm_t = landm_t[pos_idx1].view(-1, 10)
         loss_landm = F.smooth_l1_loss(landm_p, landm_t, reduction='sum')
-
 
         pos = conf_t != zeros
         conf_t[pos] = 1
