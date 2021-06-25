@@ -9,6 +9,7 @@ import time
 import torch
 import numpy as np
 from torch import optim
+from torch.utils.data import DataLoader, dataloader
 from model.model import RetinaFace
 from data.dataset import WiderFaceDataset
 
@@ -22,72 +23,57 @@ def parse_args():
     parser.add_argument('--momentum', type=int, default=MOMENTUM, help="momemtum of optimizer")
     parser.add_argument('--startfm', type=int, default=START_FRAME, help="architecture start frame")
     parser.add_argument('--batchsize', type=int, default=BATCH_SIZE, help="total batch size for all GPUs (default:")
-    parser.add_argument('--lr', type=float, default=LEARNING_RATE, help="learning rate (default: 0.0001)")
+    parser.add_argument('--lr', type=float, default=LEARNING_RATE, help="init learning rate (default: 0.0001)")
     parser.add_argument('--tuning', action='store_true', help="no plot image for tuning")
 
     args = parser.parse_args()
     return args
 
-
-def train(model, device, trainloader, optimizer, loss_function):
+def train(model, device, trainloader, optimizer, loss_function, best_ap):
     model.train()
-    running_loss = 0
+    loss_cls, loss_box, loss_pts = 0, 0, 0
+    epoch_ap = 0
     for i, (input, targets) in enumerate(trainloader):
         # load data into cuda
         input, targets = input.to(device), targets.to(device)
 
         # forward
         predict = model(input)
-        loss = loss_function(predict, targets)
+        loss_l, loss_c, loss_landm = loss_function(predict, targets)
+        loss = loss_l + loss_c + loss_landm
 
         # metric
-        # TODO: log ap, loc_loss, class_loss, landmark_loss
-        running_loss += (loss.item())
-        
+        # TODO: log ap
+        loss_cls += loss_c
+        loss_box += loss_l 
+        loss_pts += loss_landm
+
         # zero the gradient + backprpagation + step
         optimizer.zero_grad()
 
         loss.backward()
         optimizer.step()
-            
-    # mean_iou = np.mean(iou)
-    total_loss = running_loss/len(trainloader)
     
-    # wandb.log({'Train loss': total_loss, 'Train IoU': })
+    # cls = classification; box = box regressionl; pts = landmark regression
+    loss_cls = loss_cls/len(trainloader)
+    loss_box = loss_box/len(trainloader)
+    loss_pts = loss_pts/len(trainloader)
 
-    return total_loss
-    
-def test(model, device, testloader, loss_function, best_iou):
-    model.eval()
-    running_loss = 0
-    with torch.no_grad():
-        for i, (input, targets) in enumerate(testloader):
-            input, targets = input.to(device), targets.to(device)
+    wandb.log({'train': {'loss_cls': loss_cls, 
+            'loss_box': loss_box, 
+            'loss_landmark': loss_pts}})
 
-            predict = model(input)
-            loss = loss_function(predict, targets)
-
-            running_loss += loss.item()
-
-    test_loss = running_loss/len(testloader)
-    
-    # log wandb
-    # wandb.log({'Valid loss': test_loss, 'Valid IoU': mean_iou, 'Prediction': targets_list})
-    epoch_ap = 0
-
-    # TODO: cal epoch_ap
-    if epoch_ap>best_iou and not args.tuning:
+    if epoch_ap>best_ap and not args.tuning:
         # export to onnx + pt
         if not os.path.exists(SAVE_PATH):
             os.makedirs(SAVE_PATH)
-
         try:
             torch.onnx.export(model, input, os.path.join(SAVE_PATH+RUN_NAME+'.onnx'))
             torch.save(model.state_dict(), os.path.join(SAVE_PATH+RUN_NAME+'.pth'))
         except:
             print('Can export weights')
 
-    return test_loss
+    return loss_cls, loss_box, loss_pts, epoch_ap
 
 if __name__ == '__main__':
     args = parse_args()
@@ -118,10 +104,13 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print("Current device", device)
 
-
-    # TODO: Workin' on it
-    dataset = WiderFaceDataset(DATA_PATH)
-    trainloader, validloader = get_dataloader(dataset=dataset, batch_size=args.batchsize)
+    # get dataloader
+    train_set = WiderFaceDataset(TRAIN_PATH)
+    valid_set = WiderFaceDataset(VALID_PATH)
+    
+    torch.manual_seed(RANDOM_SEED)
+    trainloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
+    validloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
 
     # get model and define loss func, optimizer
     n_classes = N_CLASSES
@@ -147,16 +136,22 @@ if __name__ == '__main__':
     best_ap = -1
 
     for epoch in range(epochs):
+        print(f'\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal')
         t0 = time.time()
-        train_loss, train_ap = train(model, device, trainloader, optimizer, criterion)
+        loss_box, loss_pts, loss_cls, train_ap = train(model, device, trainloader, optimizer, criterion, best_ap)
         t1 = time.time()
-        print(f'Epoch: {epoch} | Train loss: {train_loss:.3f} | Train IoU: {train_iou:.3f} | Time: {(t1-t0):.1f}s')
-        test_loss, test_ap = test(model, device, validloader, criterion, best_ap)
-        print(f'Epoch: {epoch} | Valid loss: {test_loss:.3f} | Valid IoU: {test_ap:.3f} | Time: {(t1-t0):.1f}s')
+
+        total_loss = loss_box + loss_pts + loss_cls
+        print(f'\t{epoch}/{epochs}\t{loss_box}\t\t{loss_pts}\t\t{loss_cls:.5f}\t\t{():.5f}\t\t{(t1-t0):.2f}s')
         
+        # summary
+        # print(f'\tImages\tLabels\t\tP\t\tR\t\tmAP@.5\t\tmAP.5.95')
+        # images, labels, P, R, map_5, map_95
+        # print(f'\t{images}\t{labels}\t\t{P}\t\t{R}\t\t{map_5}\t\t{map_95}')
+    
         # Wandb summary
-        if best_ap < test_ap:
-            best_ap = test_ap
+        if train_ap > best_ap:
+            best_ap = train_ap
             wandb.run.summary["best_accuracy"] = best_ap
 
     if not args.tuning:
@@ -164,4 +159,3 @@ if __name__ == '__main__':
         trained_weight.add_file(SAVE_PATH+RUN_NAME+'.onnx')
         trained_weight.add_file(SAVE_PATH+RUN_NAME+'.pth')
         wandb.log_artifact(trained_weight)
-    # evaluate
