@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
+from math import sqrt, pow
 import torch.nn.functional as F
-from torchvision.models import _utils
-from model.config import IN_CHANNELS, OUT_CHANNELS, RETURN_LAYERS
+from model._utils import IntermediateLayerGetter
+from model.config import IN_CHANNELS, OUT_CHANNELS, RETURN_LAYERS, FEATURE_MAP
 from model.common import FPN, SSH, MobileNetV1
 
 class ClassHead(nn.Module):
@@ -46,7 +47,7 @@ class LandmarkHead(nn.Module):
         return out.view(out.shape[0], -1, 10)
 
 class RetinaFace(nn.Module):
-    def __init__(self, backbone='MBNv1', pretrain_path=None):
+    def __init__(self, name='mobilenet0.25', pretrain_path=None):
         """
         Model RetinaFace for face recognition based on:
         `"RetinaFace: Single-stage Dense Face Localisation in the Wild" <https://arxiv.org/abs/1905.00641>`_.
@@ -55,14 +56,22 @@ class RetinaFace(nn.Module):
 
         # load backbone
         backbone = None
-        if backbone == 'MBNv1':
+        if name == 'mobilenet0.25':
             backbone = MobileNetV1()
             if not pretrain_path is None:
                 pretrain_weight = torch.load(pretrain_path)
                 backbone.load_state_dict(pretrain_weight)
 
+        elif name == 'mobilenetv2':
+            backbone = torch.hub.load('pytorch/vision:v0.9.0', 'mobilenet_v2', pretrained=True)
+        
+        elif name == 'resnet50':
+            import torchvision.models as models
+            backbone = models.resnet50(pretrained=True)
+        
+
         # frozen pre-trained backbone
-        self.body = _utils.IntermediateLayerGetter(backbone, RETURN_LAYERS)
+        self.body = IntermediateLayerGetter(backbone, {'stage1': 1, 'stage2': 2, 'stage3': 3}   )
 
         in_channels_list = [IN_CHANNELS*2, IN_CHANNELS*4, IN_CHANNELS*8]
         self.fpn = FPN(in_channels_list=in_channels_list, out_channels=OUT_CHANNELS)
@@ -72,6 +81,9 @@ class RetinaFace(nn.Module):
         self.ClassHead      = self._make_class_head(inchannels=OUT_CHANNELS)
         self.BboxHead       = self._make_bbox_head(inchannels=OUT_CHANNELS)
         self.LandmarkHead   = self._make_landmark_head(inchannels=OUT_CHANNELS)
+
+        # Prior boxes
+        self.priors         = self.create_prior_boxes()
 
     def _make_class_head(self,fpn_num=3,inchannels=64,anchor_num=2):
         classhead = nn.ModuleList()
@@ -115,4 +127,54 @@ class RetinaFace(nn.Module):
 
         output = (classifications, bbox_regressions, ldm_regressions)
         return output
+
+    def create_prior_boxes(self):
+        """
+        Create the 102,300 prior (default) boxes for the RetinaFace, as defined in the paper.
+        :return: prior boxes in center-size coordinates, a tensor of dimensions (102,300, 4)
+        """
+        fmap_dims  = FEATURE_MAP
+
+        obj_scales = pow(2, 1/3)
+
+        aspect_ratios = {'stage2': 160, 
+                        'stage3': 80, 
+                        'stage4':40, 
+                        'stage5':20, 
+                        'stage6':10}
+        
+                        # {'stage2': [1., 2., 0.5],
+                        #  'conv7': [1., 2., 3., 0.5, .333],
+                        #  'conv8_2': [1., 2., 3., 0.5, .333],
+                        #  'conv9_2': [1., 2., 3., 0.5, .333],
+                        #  'conv10_2': [1., 2., 0.5],
+                        #  'conv11_2': [1., 2., 0.5]}
+
+        fmaps = list(fmap_dims.keys())
+
+        prior_boxes = []
+
+        for k, fmap in enumerate(fmaps):
+            for i in range(fmap_dims[fmap]):
+                for j in range(fmap_dims[fmap]):
+                    cx = (j + 0.5) / fmap_dims[fmap]
+                    cy = (i + 0.5) / fmap_dims[fmap]
+
+                    for ratio in aspect_ratios[fmap]:
+                        prior_boxes.append([cx, cy, obj_scales[fmap] * sqrt(ratio), obj_scales[fmap] / sqrt(ratio)])
+
+                        # For an aspect ratio of 1, use an additional prior whose scale is the geometric mean of the
+                        # scale of the current feature map and the scale of the next feature map
+                        if ratio == 1.:
+                            try:
+                                additional_scale = sqrt(obj_scales[fmap] * obj_scales[fmaps[k + 1]])
+                            # For the last feature map, there is no "next" feature map
+                            except IndexError:
+                                additional_scale = 1.
+                            prior_boxes.append([cx, cy, additional_scale, additional_scale])
+
+        prior_boxes = torch.FloatTensor(prior_boxes)  # (102300, 4)
+        prior_boxes.clamp_(0, 1)  # (102300, 4)
+
+        return prior_boxes
 

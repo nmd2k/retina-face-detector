@@ -11,7 +11,7 @@ import numpy as np
 from torch import optim
 from torch.utils.data import DataLoader, dataloader
 from model.model import RetinaFace
-from data.dataset import WiderFaceDataset
+from utils.dataset import WiderFaceDataset
 
 
 def parse_args():
@@ -29,7 +29,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def train(model, device, trainloader, optimizer, loss_function, best_ap):
+def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device='cpu'):
     model.train()
     loss_cls, loss_box, loss_pts = 0, 0, 0
     epoch_ap = 0
@@ -39,7 +39,7 @@ def train(model, device, trainloader, optimizer, loss_function, best_ap):
 
         # forward
         predict = model(input)
-        loss_l, loss_c, loss_landm = loss_function(predict, targets)
+        loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
         loss = loss_l + loss_c + loss_landm
 
         # metric
@@ -118,11 +118,13 @@ if __name__ == '__main__':
 
     model = RetinaFace().to(device)
 
-    # loss_func   = Weighted_Cross_Entropy_Loss()
-    optimizer   = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.wd)
+    with torch.no_grad():
+        # in Retina paper, they use anchor box which same as Prior box in SSD
+        anchors = model.priors.to(device)
 
-    # citeration
-    criterion = MultiBoxLoss(N_CLASSES, 
+    # optimizer + citeration
+    optimizer   = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.wd)
+    criterion   = MultiBoxLoss(N_CLASSES, 
                             overlap_thresh=OVERLAP_THRES, 
                             prior_for_matching=True, 
                             bkg_label=BKG_LABEL, neg_pos=True, 
@@ -138,7 +140,7 @@ if __name__ == '__main__':
     for epoch in range(epochs):
         print(f'\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal')
         t0 = time.time()
-        loss_box, loss_pts, loss_cls, train_ap = train(model, device, trainloader, optimizer, criterion, best_ap)
+        loss_box, loss_pts, loss_cls, train_ap = train(model, anchors, trainloader, optimizer, criterion, best_ap, device)
         t1 = time.time()
 
         total_loss = loss_box + loss_pts + loss_cls

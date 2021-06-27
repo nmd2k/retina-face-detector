@@ -19,7 +19,9 @@ START_FRAME         = 8
 LEARNING_RATE       = 1e-3
 WEIGHT_DECAY        = 5e-4
 MOMENTUM            = 0.9
-RETURN_LAYERS       =  {'stage1': 1, 'stage2': 2, 'stage3': 3}
+# FEATURE_MAP         = {'stage1': 80, 'stage2': 40, 'stage3': 20}
+FEATURE_MAP         = {'stage2': 160, 'stage3': 80, 'stage4':40, 'stage5':20, 'stage6':10}
+RETURN_LAYERS       = {'stage1': 1, 'stage2': 2, 'stage3': 3}
 IN_CHANNELS         = 32
 OUT_CHANNELS        = 64
 

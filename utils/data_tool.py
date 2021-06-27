@@ -1,4 +1,6 @@
 import os
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 def exact_label(path, des):
@@ -31,4 +33,44 @@ def exact_label(path, des):
             
             else:
                 temp_lines.append(lines[idx])
+
+def analysis_bb(root_path, is_train=True, out='research'):
+    if is_train:
+        path = os.path.join(root_path, 'train/labels')
+    else:
+        path = os.path.join(root_path, 'val/labels')
+
+    dirname = os.listdir(path)
+
+    statis_dict = {}
+
+    for dir in dirname:
+        subdir  = os.listdir(os.path.join(path, dir))
+        pbar = tqdm(range(len(subdir)))
+        pbar.set_description(dir, refresh=False)
+        for idx in pbar:
+            f = open(os.path.join(path, dir, subdir[idx]), 'r')
+            lines = f.readlines()
+
+            for jdx, line in enumerate(lines):
+                line = line.strip().split()
+                line = [float(x) for x in line]
+
+                # bbox
+                x1 = line[0]               # x1
+                y1 = line[1]               # y1
+                x2 = line[0] + line[2]     # x2
+                y2 = line[1] + line[3]     # y2
+
+                # csv
+                try:
+                    ap = np.around((x2-x1)/(y2-y1), 3)
+                except:
+                    # divide by 0
+                    ap = -1
+                statis_dict[subdir[idx][:-4]+f':{jdx}'] = [(x2-x1), (y2-y1), ap]
+            
+    
+    df = pd.DataFrame.from_dict(statis_dict, orient='index', columns=['width', 'height', 'aspect_ratio'])
+    df.to_csv(out+'.csv')
     
