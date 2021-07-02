@@ -131,7 +131,7 @@ class MobileNetV1(nn.Module):
         self.out_channels = out_channels
         self.start_frame  = start_frame
 
-        self.stage1 = nn.Sequential(                            # Input channels-Output channels
+        self.layer1 = nn.Sequential(                            # Input channels-Output channels
             Conv_BN(in_channels, start_frame, stride=2, leaky=0.1),    # 3-32
             Conv_DW(start_frame, start_frame*2),                # 32-64
             Conv_DW(start_frame*2, start_frame*4, stride=2),    # 64-128
@@ -140,7 +140,7 @@ class MobileNetV1(nn.Module):
             Conv_DW(start_frame*8, start_frame*8),              # 256-256
         )
         
-        self.stage2 = nn.Sequential(
+        self.layer2 = nn.Sequential(
             Conv_DW(start_frame*8, start_frame*16, stride=2),   # 256-512
             Conv_DW(start_frame*16, start_frame*16),            # 512-512
             Conv_DW(start_frame*16, start_frame*16),            # 512-512
@@ -149,7 +149,7 @@ class MobileNetV1(nn.Module):
             Conv_DW(start_frame*16, start_frame*16),            # 512-512
         )
 
-        self.stage3 = nn.Sequential(
+        self.layer3 = nn.Sequential(
             Conv_DW(start_frame*16, start_frame*32, stride=2),  # 512-1024
             Conv_DW(start_frame*32, start_frame*32)             # 1024-1024
         )
@@ -157,31 +157,26 @@ class MobileNetV1(nn.Module):
         self.avg    = nn.AdaptiveAvgPool2d((1,1))
         self.fc     = nn.Linear(start_frame*32, out_channels)   # 1024-1000
 
+        # weight initialization
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out')
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, (nn.BatchNorm2d)):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.zeros_(m.bias)
+
     def forward(self, input):
-        x = self.stage1(input)
-        x = self.stage2(x)
-        x = self.stage3(x)
+        x = self.layer1(input)
+        x = self.layer2(x)
+        x = self.layer3(x)
         x = self.avg(x)
 
         x = x.view(-1, self.start_frame*32)
         x = self.fc(x)
         
         return x
-
-class MobileNetV2(nn.Module):
-    def __init__(self):
-        super(MobileNetV2, self).__init__()
-
-        pass
-
-    def forward(self, input):
-        pass
-
-class ResNet50(nn.Module):
-    def __init__(self):
-        super(ResNet50, self).__init__()
-
-        pass
-
-    def forward(self, input):
-        pass
