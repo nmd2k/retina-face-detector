@@ -1,9 +1,9 @@
 # DATA config ================
 DATA_PATH           = './data'
 N_CLASSES           = 2
-TRAIN_PATH          = './data/train'
-VALID_PATH          = './data/val'
-TEST_PATH           = './data/test'
+TRAIN_PATH          = './train'
+VALID_PATH          = './val'
+TEST_PATH           = './test'
 SAVE_PATH           = './model'
 
 DATASET_NAME        = 'widerface' 

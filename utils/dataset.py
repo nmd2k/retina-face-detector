@@ -2,7 +2,7 @@ import os
 import torch
 import wandb
 import numpy as np
-from model.config import BATCH_SIZE, RANDOM_SEED, VALID_RATIO, NUM_WORKERS
+from model.config import BATCH_SIZE, RANDOM_SEED, TRAIN_PATH, VALID_PATH, VALID_RATIO, NUM_WORKERS
 from torch.utils.data import Dataset
 from torchvision import transforms
 from PIL import Image
@@ -25,9 +25,9 @@ class WiderFaceDataset(Dataset):
             self.transform = transforms.ToTensor()
 
         if is_train: 
-            self.path = os.path.join(root_path, 'train/')
+            self.path = os.path.join(root_path, TRAIN_PATH)
         else: 
-            self.path = os.path.join(root_path, 'val/')
+            self.path = os.path.join(root_path, VALID_PATH)
         
         for dirname in os.listdir(self.path):
             for subdir in os.listdir(os.path.join(self.path, dirname)):

@@ -3,6 +3,15 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+def create_exp_dir(root_path='.'):
+    for idx in range(1, 1000, 1):
+        if not os.path.exists(os.path.join(root_path, f'exp{idx}')):
+            save_dir = os.path.join(root_path, f'exp{idx}')
+            break
+    os.makedirs(save_dir)
+
+    return save_dir
+
 def exact_label(path, des):
     list_file = os.listdir(os.path.join(path, 'images'))
 
