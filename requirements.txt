@@ -5,3 +5,7 @@ torchvision>=0.9.1
 # log experiment
 matplotlib
 wandb
+
+#analysis
+pandas
+seaborn

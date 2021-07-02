@@ -1,16 +1,16 @@
-import argparse
-from model.multibox_loss import MultiBoxLoss
-
-from model.config import *
-
 import os 
-import wandb
 import time
+import wandb
 import torch
+import argparse
 import numpy as np
 from torch import optim
 from torch.utils.data import DataLoader, dataloader
+
+from model.config import *
 from model.model import RetinaFace
+from utils.data_tool import create_exp_dir
+from model.multibox_loss import MultiBoxLoss
 from utils.dataset import WiderFaceDataset
 
 
@@ -19,6 +19,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train image segmentation')
     parser.add_argument('--run', type=str, default='demo', help="run name")
     parser.add_argument('--epoch', type=int, default=EPOCHS, help="number of epoch")
+    parser.add_argument('--weight', type=str, default=None, help='path to pretrained weight')
     parser.add_argument('--weight_decay', type=int, default=WEIGHT_DECAY, help="weight decay of optimizer")
     parser.add_argument('--momentum', type=int, default=MOMENTUM, help="momemtum of optimizer")
     parser.add_argument('--startfm', type=int, default=START_FRAME, help="architecture start frame")
@@ -59,19 +60,14 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
     loss_box = loss_box/len(trainloader)
     loss_pts = loss_pts/len(trainloader)
 
-    wandb.log({'train': {'loss_cls': loss_cls, 
+    wandb.log({'loss_cls': loss_cls, 
             'loss_box': loss_box, 
-            'loss_landmark': loss_pts}})
+            'loss_landmark': loss_pts})
 
-    if epoch_ap>best_ap and not args.tuning:
+    if epoch_ap>best_ap:
         # export to onnx + pt
-        if not os.path.exists(SAVE_PATH):
-            os.makedirs(SAVE_PATH)
-        try:
-            torch.onnx.export(model, input, os.path.join(SAVE_PATH+RUN_NAME+'.onnx'))
-            torch.save(model.state_dict(), os.path.join(SAVE_PATH+RUN_NAME+'.pth'))
-        except:
-            print('Can export weights')
+        torch.onnx.export(model, input, os.path.join(SAVE_PATH+RUN_NAME+'.onnx'))
+        torch.save(model.state_dict(), os.path.join(SAVE_PATH+RUN_NAME+'.pth'))
 
     return loss_cls, loss_box, loss_pts, epoch_ap
 
@@ -105,21 +101,22 @@ if __name__ == '__main__':
     print("Current device", device)
 
     # get dataloader
-    train_set = WiderFaceDataset(TRAIN_PATH)
-    valid_set = WiderFaceDataset(VALID_PATH)
+    train_set = WiderFaceDataset(root_path=DATA_PATH, is_train=True)
+    valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
     
     torch.manual_seed(RANDOM_SEED)
     trainloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
     validloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
 
-    # get model and define loss func, optimizer
     n_classes = N_CLASSES
     epochs = args.epoch
+    # create dir for save weight
+    save_dir = create_exp_dir()
 
+    # get model and define loss func, optimizer
     model = RetinaFace().to(device)
 
     with torch.no_grad():
-        # in Retina paper, they use anchor box which same as Prior box in SSD
         anchors = model.priors.to(device)
 
     # optimizer + citeration
@@ -130,6 +127,8 @@ if __name__ == '__main__':
                             bkg_label=BKG_LABEL, neg_pos=True, 
                             neg_mining=NEG_MINING, neg_overlap=NEG_OVERLAP, 
                             encode_target=False, device=device)
+
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[4,9,14,19], gamma=0.7)
 
     # wandb watch
     run.watch(models=model, criterion=criterion, log='all', log_freq=10)
@@ -151,6 +150,11 @@ if __name__ == '__main__':
         # images, labels, P, R, map_5, map_95
         # print(f'\t{images}\t{labels}\t\t{P}\t\t{R}\t\t{map_5}\t\t{map_95}')
     
+        wandb.log({"lr": scheduler.get_last_lr()[0]}, step=epoch)
+        
+        # decrease lr
+        scheduler.step()
+
         # Wandb summary
         if train_ap > best_ap:
             best_ap = train_ap
