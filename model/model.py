@@ -48,7 +48,7 @@ class LandmarkHead(nn.Module):
         return out.view(out.shape[0], -1, 10)
 
 class RetinaFace(nn.Module):
-    def __init__(self, model_name='mobilenet0.25', pretrain_path=None):
+    def __init__(self, model_name='mobilenet0.25', freeze_backbone=False, pretrain_path=None):
         """
         Model RetinaFace for face recognition based on:
         `"RetinaFace: Single-stage Dense Face Localisation in the Wild" <https://arxiv.org/abs/1905.00641>`_.
@@ -58,7 +58,7 @@ class RetinaFace(nn.Module):
         # load backbone
         backbone = None
         if model_name == 'mobilenet0.25':
-            backbone            = MobileNetV1()
+            backbone            = MobileNetV1(start_frame=8)
             return_feature      = RETURN_MAP_MOBN1
             self.feature_map    = FEATURE_MAP_MOBN1
             if not pretrain_path is None:
@@ -79,7 +79,11 @@ class RetinaFace(nn.Module):
         # frozen pre-trained backbone
         self.body = IntermediateLayerGetter(backbone, return_feature)
 
-        in_channels_list = [IN_CHANNELS*2, IN_CHANNELS*4, IN_CHANNELS*8]
+        if freeze_backbone:
+            for param in self.body.parameters():
+                param.requires_grad = False
+
+        in_channels_list = [IN_CHANNELS*2, IN_CHANNELS*4, IN_CHANNELS*8, IN_CHANNELS*8]
         self.fpn = FPN(in_channels_list=in_channels_list, out_channels=OUT_CHANNELS)
         self.ssh = SSH(in_channels=OUT_CHANNELS, out_channels=OUT_CHANNELS)
 
@@ -119,10 +123,11 @@ class RetinaFace(nn.Module):
         fpn = self.fpn(out)
 
         # Single-stage headless
-        feature_1 = self.ssh(fpn[0])
-        feature_2 = self.ssh(fpn[1])
-        feature_3 = self.ssh(fpn[2])
-        features = [feature_1, feature_2, feature_3]
+        feature_2 = self.ssh(fpn[0])
+        feature_3 = self.ssh(fpn[1])
+        feature_4 = self.ssh(fpn[2])
+        feature_5 = self.ssh(fpn[3])
+        features = [feature_2, feature_3, feature_4, feature_5]
 
         bbox_regressions = torch.cat([self.BboxHead[i](feature) for i, feature in enumerate(features)], dim=1)
         classifications = torch.cat([self.ClassHead[i](feature) for i, feature in enumerate(features)],dim=1)

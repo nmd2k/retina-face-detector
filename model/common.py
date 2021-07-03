@@ -92,6 +92,7 @@ class FPN(nn.Module):
         self.layer_feature_1 = Conv_BN(in_channels_list[0], out_channels, 1, leaky=leaky)
         self.layer_feature_2 = Conv_BN(in_channels_list[1], out_channels, 1, leaky=leaky)
         self.layer_feature_3 = Conv_BN(in_channels_list[2], out_channels, 1, leaky=leaky)
+        self.layer_feature_4 = Conv_BN(in_channels_list[2], out_channels, 3, stride=2, leaky=leaky)
 
         self.merge           = Conv_BN(out_channels, out_channels, leaky=leaky)
 
@@ -113,6 +114,7 @@ class FPN(nn.Module):
         output1 = self.layer_feature_1(input[0])
         output2 = self.layer_feature_2(input[1])
         output3 = self.layer_feature_3(input[2])
+        output4 = self.layer_feature_4(input[2]) # input[2] is output of Layer 3
 
         up3     = F.interpolate(output3, size=[output2.size(2), output2.size(3)], mode="nearest")
         output2 = output2 + up3
@@ -122,7 +124,7 @@ class FPN(nn.Module):
         output1 = output1 + up2
         output1 = self.merge(output1)
 
-        return [output1, output2, output3]
+        return [output1, output2, output3, output4]
 
 class MobileNetV1(nn.Module):
     def __init__(self, in_channels=3, out_channels=1000, start_frame=32):
@@ -131,7 +133,7 @@ class MobileNetV1(nn.Module):
         self.out_channels = out_channels
         self.start_frame  = start_frame
 
-        self.layer1 = nn.Sequential(                            # Input channels-Output channels
+        self.layer2 = nn.Sequential(                            # Input channels-Output channels
             Conv_BN(in_channels, start_frame, stride=2, leaky=0.1),    # 3-32
             Conv_DW(start_frame, start_frame*2),                # 32-64
             Conv_DW(start_frame*2, start_frame*4, stride=2),    # 64-128
@@ -140,7 +142,7 @@ class MobileNetV1(nn.Module):
             Conv_DW(start_frame*8, start_frame*8),              # 256-256
         )
         
-        self.layer2 = nn.Sequential(
+        self.layer3 = nn.Sequential(
             Conv_DW(start_frame*8, start_frame*16, stride=2),   # 256-512
             Conv_DW(start_frame*16, start_frame*16),            # 512-512
             Conv_DW(start_frame*16, start_frame*16),            # 512-512
@@ -149,7 +151,7 @@ class MobileNetV1(nn.Module):
             Conv_DW(start_frame*16, start_frame*16),            # 512-512
         )
 
-        self.layer3 = nn.Sequential(
+        self.layer4 = nn.Sequential(
             Conv_DW(start_frame*16, start_frame*32, stride=2),  # 512-1024
             Conv_DW(start_frame*32, start_frame*32)             # 1024-1024
         )
