@@ -1,3 +1,5 @@
+PROJECT             = 'Retina-Face'
+RUN_NAME            = 'demo'
 # DATA config ================
 DATA_PATH           = './data'
 N_CLASSES           = 2

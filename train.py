@@ -19,8 +19,9 @@ from utils.dataset import WiderFaceDataset, detection_collate
 def parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(description='Train image segmentation')
-    parser.add_argument('--run', type=str, default='demo', help="run name")
+    parser.add_argument('--run', type=str, default=RUN_NAME, help="run name")
     parser.add_argument('--epoch', type=int, default=EPOCHS, help="number of epoch")
+    parser.add_argument('--model', type=str, default='mobilenet0.25', help='select model')
     parser.add_argument('--weight', type=str, default=None, help='path to pretrained weight')
     parser.add_argument('--weight_decay', type=int, default=WEIGHT_DECAY, help="weight decay of optimizer")
     parser.add_argument('--momentum', type=int, default=MOMENTUM, help="momemtum of optimizer")
@@ -66,8 +67,8 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
 
     if epoch_ap>best_ap:
         # export to onnx + pt
-        torch.onnx.export(model, input, os.path.join(SAVE_PATH+RUN_NAME+'.onnx'))
-        torch.save(model.state_dict(), os.path.join(SAVE_PATH+RUN_NAME+'.pth'))
+        torch.onnx.export(model, input, os.path.join(SAVE_PATH+args.run+'.onnx'))
+        torch.save(model.state_dict(), os.path.join(SAVE_PATH+args.run+'.pth'))
 
     return loss_cls, loss_box, loss_pts, epoch_ap
 
@@ -85,8 +86,7 @@ if __name__ == '__main__':
     )
     
     # log experiments to
-    RUN_NAME = args.run
-    run = wandb.init(project="Retina-Face", config=config, entity='nmd2000')
+    run = wandb.init(project=PROJECT, config=config, entity='nmd2000')
     
     # use artifact
     use_data_wandb(run=run, data_name=DATASET, download=args.download)
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     save_dir = create_exp_dir()
 
     # get model and define loss func, optimizer
-    model = RetinaFace().to(device)
+    model = RetinaFace(model_name=args.model).to(device)
 
     with torch.no_grad():
         anchors = Anchors(pyramid_levels=model.feature_map).forward().to(device)
@@ -160,7 +160,7 @@ if __name__ == '__main__':
             wandb.run.summary["best_accuracy"] = best_ap
 
     if not args.tuning:
-        trained_weight = wandb.Artifact(RUN_NAME, type='weights')
-        trained_weight.add_file(SAVE_PATH+RUN_NAME+'.onnx')
-        trained_weight.add_file(SAVE_PATH+RUN_NAME+'.pth')
+        trained_weight = wandb.Artifact(args.run, type='weights')
+        trained_weight.add_file(SAVE_PATH+args.run+'.onnx')
+        trained_weight.add_file(SAVE_PATH+args.run+'.pth')
         wandb.log_artifact(trained_weight)
