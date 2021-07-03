@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument('--startfm', type=int, default=START_FRAME, help="architecture start frame")
     parser.add_argument('--batchsize', type=int, default=BATCH_SIZE, help="total batch size for all GPUs (default:")
     parser.add_argument('--lr', type=float, default=LEARNING_RATE, help="init learning rate (default: 0.0001)")
+    parser.add_argument('--download', action='store_true', help="download dataset from Wandb Database")
     parser.add_argument('--tuning', action='store_true', help="no plot image for tuning")
 
     args = parser.parse_args()
@@ -63,10 +64,6 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
     loss_box = loss_box/len(trainloader)
     loss_pts = loss_pts/len(trainloader)
 
-    wandb.log({'loss_cls': loss_cls, 
-            'loss_box': loss_box, 
-            'loss_landmark': loss_pts})
-
     if epoch_ap>best_ap:
         # export to onnx + pt
         torch.onnx.export(model, input, os.path.join(SAVE_PATH+RUN_NAME+'.onnx'))
@@ -92,7 +89,7 @@ if __name__ == '__main__':
     run = wandb.init(project="Retina-Face", config=config, entity='nmd2000')
     
     # use artifact
-    use_data_wandb(run=run, data_name=DATASET, download=False)
+    use_data_wandb(run=run, data_name=DATASET, download=args.download)
 
     # train on device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -100,14 +97,14 @@ if __name__ == '__main__':
 
     # get dataloader
     train_set = WiderFaceDataset(root_path=DATA_PATH, is_train=True)
-    # valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
+    valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
     
     print(f"\tNumber of training example: {len(train_set)}\n\tNumber of validation example: {len(valid_set)}")
 
     torch.manual_seed(RANDOM_SEED)
 
     trainloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, collate_fn=detection_collate)
-    # validloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, collate_fn=detection_collate)
+    validloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, collate_fn=detection_collate)
 
     n_classes = N_CLASSES
     epochs = args.epoch
@@ -144,6 +141,7 @@ if __name__ == '__main__':
         t1 = time.time()
 
         total_loss = loss_box + loss_pts + loss_cls
+        wandb.log({'loss_cls': loss_cls, 'loss_box': loss_box, 'loss_landmark': loss_pts}, step=epoch)
         print(f'\t{epoch}/{epochs}\t{loss_box}\t\t{loss_pts}\t\t{loss_cls:.5f}\t\t{():.5f}\t\t{(t1-t0):.2f}s')
         
         # summary
