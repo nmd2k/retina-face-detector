@@ -38,7 +38,8 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
     epoch_ap = 0
     for i, (input, targets) in enumerate(trainloader):
         # load data into cuda
-        input, targets = input.to(device), targets.to(device)
+        input   = input.to(device)
+        targets = [annos.to(device) for annos in targets]
 
         # forward
         predict = model(input)
@@ -62,9 +63,9 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
     loss_box = loss_box/len(trainloader)
     loss_pts = loss_pts/len(trainloader)
 
-    # wandb.log({'loss_cls': loss_cls, 
-    #         'loss_box': loss_box, 
-    #         'loss_landmark': loss_pts})
+    wandb.log({'loss_cls': loss_cls, 
+            'loss_box': loss_box, 
+            'loss_landmark': loss_pts})
 
     if epoch_ap>best_ap:
         # export to onnx + pt
@@ -95,16 +96,18 @@ if __name__ == '__main__':
 
     # train on device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print("Current device", torch.cuda.get_device_name(device))
+    print("\tCurrent training device", torch.cuda.get_device_name(device))
 
     # get dataloader
     train_set = WiderFaceDataset(root_path=DATA_PATH, is_train=True)
-    valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
+    # valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
     
+    print(f"\tNumber of training example: {len(train_set)}\n\tNumber of validation example: {len(valid_set)}")
+
     torch.manual_seed(RANDOM_SEED)
 
     trainloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, collate_fn=detection_collate)
-    validloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, collate_fn=detection_collate)
+    # validloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, collate_fn=detection_collate)
 
     n_classes = N_CLASSES
     epochs = args.epoch
