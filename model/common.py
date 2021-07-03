@@ -88,7 +88,7 @@ class FPN(nn.Module):
             out_channels (int): number of channels of the FPN representation
         """
         super(FPN, self).__init__()
-        assert len(in_channels_list) == 3
+        assert len(in_channels_list) == 4
         self.layer_feature_1 = Conv_BN(in_channels_list[0], out_channels, 1, leaky=leaky)
         self.layer_feature_2 = Conv_BN(in_channels_list[1], out_channels, 1, leaky=leaky)
         self.layer_feature_3 = Conv_BN(in_channels_list[2], out_channels, 1, leaky=leaky)
