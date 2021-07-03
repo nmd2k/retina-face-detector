@@ -49,7 +49,7 @@ class Anchors(nn.Module):
 
 
         all_anchors = torch.from_numpy(all_anchors).to(dtype=torch.float)
-        all_anchors = all_anchors.unsqueeze(0)
+        # all_anchors = all_anchors.unsqueeze(0)
 
         return all_anchors
 

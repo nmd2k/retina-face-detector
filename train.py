@@ -46,7 +46,7 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
         # forward
         predict = model(input)
         loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
-        loss = loss_l + loss_c + loss_landm
+        loss = 2.0*loss_l + loss_c + loss_landm
 
         # metric
         # TODO: log ap
@@ -93,13 +93,13 @@ if __name__ == '__main__':
 
     # train on device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print("\tCurrent training device", torch.cuda.get_device_name(device))
+    print(f"\tCurrent training device {torch.cuda.get_device_name(device)}".expandtabs(4))
 
     # get dataloader
     train_set = WiderFaceDataset(root_path=DATA_PATH, is_train=True)
     valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
     
-    print(f"\tNumber of training example: {len(train_set)}\n\tNumber of validation example: {len(valid_set)}")
+    print(f"\tNumber of training example: {len(train_set)}\n\tNumber of validation example: {len(valid_set)}".expandtabs(4))
 
     torch.manual_seed(RANDOM_SEED)
 
@@ -135,14 +135,14 @@ if __name__ == '__main__':
     best_ap = -1
 
     for epoch in range(epochs):
-        print(f'\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal')
+        print(f'\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal'.expandtabs(4))
         t0 = time.time()
         loss_box, loss_pts, loss_cls, train_ap = train(model, anchors, trainloader, optimizer, criterion, best_ap, device)
         t1 = time.time()
 
         total_loss = loss_box + loss_pts + loss_cls
         wandb.log({'loss_cls': loss_cls, 'loss_box': loss_box, 'loss_landmark': loss_pts}, step=epoch)
-        print(f'\t{epoch}/{epochs}\t{loss_box}\t\t{loss_pts}\t\t{loss_cls:.5f}\t\t{():.5f}\t\t{(t1-t0):.2f}s')
+        print(f'\t{epoch}/{epochs}\t{loss_box}\t\t{loss_pts}\t\t{loss_cls:.5f}\t\t{():.5f}\t\t{(t1-t0):.2f}s'.expandtabs(4))
         
         # summary
         # print(f'\tImages\tLabels\t\tP\t\tR\t\tmAP@.5\t\tmAP.5.95')

@@ -132,8 +132,8 @@ class RetinaFace(nn.Module):
         features = [feature_2, feature_3, feature_4, feature_5]
 
         bbox_regressions = torch.cat([self.BboxHead[i](feature) for i, feature in enumerate(features)], dim=1)
-        classifications = torch.cat([self.ClassHead[i](feature) for i, feature in enumerate(features)],dim=1)
-        ldm_regressions = torch.cat([self.LandmarkHead[i](feature) for i, feature in enumerate(features)], dim=1)
+        classifications  = torch.cat([self.ClassHead[i](feature) for i, feature in enumerate(features)], dim=1)
+        ldm_regressions  = torch.cat([self.LandmarkHead[i](feature) for i, feature in enumerate(features)], dim=1)
 
-        output = (classifications, bbox_regressions, ldm_regressions)
+        output = (bbox_regressions, classifications, ldm_regressions)
         return output
