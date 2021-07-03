@@ -8,7 +8,7 @@ VALID_PATH          = './val'
 TEST_PATH           = './test'
 SAVE_PATH           = './model'
 
-DATASET             = 'wider-face-30k' 
+DATASET             = 'wider-face-10k' 
 DVERSION            = 'latest'
 INPUT_SIZE          = 640
 BATCH_SIZE          = 32

@@ -90,9 +90,9 @@ class RetinaFace(nn.Module):
         self.ssh = SSH(in_channels=OUT_CHANNELS, out_channels=OUT_CHANNELS)
 
         # class head + bbox head + landmark head
-        self.ClassHead      = self._make_class_head(inchannels=OUT_CHANNELS, fpn_num=num_fpn)
-        self.BboxHead       = self._make_bbox_head(inchannels=OUT_CHANNELS, fpn_num=num_fpn)
-        self.LandmarkHead   = self._make_landmark_head(inchannels=OUT_CHANNELS, fpn_num=num_fpn)
+        self.ClassHead      = self._make_class_head(inchannels=OUT_CHANNELS, anchor_num=6, fpn_num=num_fpn)
+        self.BboxHead       = self._make_bbox_head(inchannels=OUT_CHANNELS, anchor_num=6, fpn_num=num_fpn)
+        self.LandmarkHead   = self._make_landmark_head(inchannels=OUT_CHANNELS, anchor_num=6, fpn_num=num_fpn)
 
     def _make_class_head(self,fpn_num=3,inchannels=64,anchor_num=2):
         classhead = nn.ModuleList()

@@ -89,12 +89,13 @@ class FPN(nn.Module):
         """
         super(FPN, self).__init__()
         assert len(in_channels_list) == 4
-        self.layer_feature_1 = Conv_BN(in_channels_list[0], out_channels, 1, leaky=leaky)
-        self.layer_feature_2 = Conv_BN(in_channels_list[1], out_channels, 1, leaky=leaky)
-        self.layer_feature_3 = Conv_BN(in_channels_list[2], out_channels, 1, leaky=leaky)
+        self.layer_feature_1 = Conv_BN(in_channels_list[0], out_channels, 1, padding=0, leaky=leaky)
+        self.layer_feature_2 = Conv_BN(in_channels_list[1], out_channels, 1, padding=0, leaky=leaky)
+        self.layer_feature_3 = Conv_BN(in_channels_list[2], out_channels, 1, padding=0, leaky=leaky)
         self.layer_feature_4 = Conv_BN(in_channels_list[2], out_channels, 3, stride=2, leaky=leaky)
 
         self.merge           = Conv_BN(out_channels, out_channels, leaky=leaky)
+        self.upsample        = nn.Upsample(scale_factor=2, mode='nearest')
 
     def forward(self, input):
         """
@@ -116,12 +117,17 @@ class FPN(nn.Module):
         output3 = self.layer_feature_3(input[2])
         output4 = self.layer_feature_4(input[2]) # input[2] is output of Layer 3
 
+        output4 = self.upsample(output4)
+        output3 = self.upsample(output3)
+
         up3     = F.interpolate(output3, size=[output2.size(2), output2.size(3)], mode="nearest")
         output2 = output2 + up3
+        output2 = self.upsample(output2)
         output2 = self.merge(output2)
 
         up2     = F.interpolate(output2, size=[output1.size(2), output1.size(3)], mode="nearest")
         output1 = output1 + up2
+        output1 = self.upsample(output1)
         output1 = self.merge(output1)
 
         return [output1, output2, output3, output4]
