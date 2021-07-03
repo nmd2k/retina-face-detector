@@ -27,10 +27,9 @@ class WiderFaceDataset(Dataset):
         else: 
             self.path = os.path.join(root_path, VALID_PATH)
         
-        for dirname in os.listdir(self.path):
-            for subdir in os.listdir(os.path.join(self.path, dirname)):
-                for file in os.listdir(os.path.join(self.path, dirname, subdir)):
-                    self.ids.append(os.path.join(subdir, file)[:-4])
+        for dirname in os.listdir(os.path.join(self.path, 'images')):
+            for file in os.listdir(os.path.join(self.path, 'images', dirname)):
+                self.ids.append(os.path.join(dirname, file)[:-4])
 
     def __len__(self):
         return len(self.ids)
