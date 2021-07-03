@@ -43,8 +43,6 @@ class WiderFaceDataset(Dataset):
         f = open(os.path.join(self.path, 'labels', self.ids[index]+'.txt'), 'r')
         lines = f.readlines()
         annotations = np.zeros((len(lines), 15))
-        
-        print('ID', self.ids[index])
 
         if len(lines) == 0:
             return annotations

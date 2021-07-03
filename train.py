@@ -1,3 +1,4 @@
+from model.anchor import Anchors
 import os 
 import time
 import wandb
@@ -8,6 +9,7 @@ from torch import optim
 from torch.utils.data import DataLoader, dataloader
 
 from model.config import *
+from utils.mlops_tool import use_data_wandb
 from model.model import RetinaFace
 from utils.data_tool import create_exp_dir
 from model.multibox_loss import MultiBoxLoss
@@ -86,19 +88,14 @@ if __name__ == '__main__':
     
     # log experiments to
     RUN_NAME = args.run
-    run = wandb.init(project="RetinaFace", config=config)
-    artifact = wandb.Artifact(DATASET_NAME, type='RAW_DATASET')
-
-    try:
-        artifact.add_dir(DATA_PATH)
-        run.log_artifact(artifact)
-    except:
-        artifact     = run.use_artifact(DATASET_NAME+DATASET_VER)
-        artifact_dir = artifact.download(DATA_PATH)
+    run = wandb.init(project="Retina-Face", config=config, entity='nmd2000')
+    
+    # use artifact
+    use_data_wandb(run=run, data_name=DATASET, download=False)
 
     # train on device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print("Current device", device)
+    print("Current device", torch.cuda.get_device_name(device))
 
     # get dataloader
     train_set = WiderFaceDataset(root_path=DATA_PATH, is_train=True)
@@ -117,10 +114,10 @@ if __name__ == '__main__':
     model = RetinaFace().to(device)
 
     with torch.no_grad():
-        anchors = model.priors.to(device)
+        anchors = Anchors(pyramid_levels=model.feature_map).forward().to(device)
 
     # optimizer + citeration
-    optimizer   = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.wd)
+    optimizer   = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     criterion   = MultiBoxLoss(N_CLASSES, 
                             overlap_thresh=OVERLAP_THRES, 
                             prior_for_matching=True, 
@@ -128,7 +125,7 @@ if __name__ == '__main__':
                             neg_mining=NEG_MINING, neg_overlap=NEG_OVERLAP, 
                             encode_target=False, device=device)
 
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[4,9,14,19], gamma=0.7)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=LR_MILESTONE, gamma=0.7)
 
     # wandb watch
     run.watch(models=model, criterion=criterion, log='all', log_freq=10)

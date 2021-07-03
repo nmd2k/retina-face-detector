@@ -6,8 +6,8 @@ VALID_PATH          = './val'
 TEST_PATH           = './test'
 SAVE_PATH           = './model'
 
-DATASET_NAME        = 'widerface' 
-DATASET_VER         = ':latest'
+DATASET             = 'wider-face-30k' 
+DVERSION            = ':latest'
 INPUT_SIZE          = 640
 BATCH_SIZE          = 32
 RANDOM_SEED         = 42

@@ -1,6 +1,7 @@
 /data/test
 /data/train
 /data/val
+/wandb
 */__pycache__
 *.aux
 *.fdb_latexmk
