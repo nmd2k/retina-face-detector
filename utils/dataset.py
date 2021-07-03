@@ -2,7 +2,8 @@ import os
 import torch
 import wandb
 import numpy as np
-from model.config import BATCH_SIZE, RANDOM_SEED, TRAIN_PATH, VALID_PATH, VALID_RATIO, NUM_WORKERS
+from utils.data_augment import WiderFacePreprocess
+from model.config import TRAIN_PATH, VALID_PATH
 from torch.utils.data import Dataset
 from torchvision import transforms
 from PIL import Image
@@ -17,12 +18,9 @@ class WiderFaceDataset(Dataset):
                 mentioned in the paper. Only applied on the train split.
     """
 
-    def __init__(self, root_path, is_train=True, transform=None):
+    def __init__(self, root_path, is_train=True):
         self.ids       = []
-        if transform != None:
-            self.transform = transform
-        else:
-            self.transform = transforms.ToTensor()
+        self.transform = WiderFacePreprocess()
 
         if is_train: 
             self.path = os.path.join(root_path, TRAIN_PATH)
@@ -39,6 +37,7 @@ class WiderFaceDataset(Dataset):
 
     def __getitem__(self, index):
         img = Image.open(os.path.join(self.path, 'images', self.ids[index]+'.jpg'))
+        img = np.array(img)
 
         f = open(os.path.join(self.path, 'labels', self.ids[index]+'.txt'), 'r')
         lines = f.readlines()
@@ -74,8 +73,10 @@ class WiderFaceDataset(Dataset):
             else:
                 annotations[idx, 14] = 1
 
-        img = self.transform(img)
-        annotations = self.transform(annotations)
+        if self.transform is not None:
+            img, annotations = self.transform(image=img, targets=annotations)
+
+        # print(f'Image {img.shape}\nAnnos: {annotations.shape}')
 
         return img, annotations
 
@@ -94,3 +95,26 @@ def log_dataset(use_artifact,
     else:
         artifact.add_file(artifact_path)
     run.log_artifact(artifact)
+
+
+def detection_collate(batch):
+    """Custom collate fn for dealing with batches of images that have a different
+    number of associated object annotations (bounding boxes).
+    Arguments:
+        batch: (tuple) A tuple of tensor images and lists of annotations
+    Return:
+        A tuple containing:
+            1) (tensor) batch of images stacked on their 0 dim
+            2) (list of tensors) annotations for a given image are stacked on 0 dim
+    """
+    targets = []
+    imgs = []
+
+    for _, (image, target) in enumerate(batch):
+        image  = torch.from_numpy(image)
+        target = torch.from_numpy(target).to(dtype=torch.float)
+
+        imgs.append(image)
+        targets.append(target)
+
+    return (torch.stack(imgs, dim=0), targets)

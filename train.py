@@ -13,7 +13,7 @@ from utils.mlops_tool import use_data_wandb
 from model.model import RetinaFace
 from utils.data_tool import create_exp_dir
 from model.multibox_loss import MultiBoxLoss
-from utils.dataset import WiderFaceDataset
+from utils.dataset import WiderFaceDataset, detection_collate
 
 
 def parse_args():
@@ -62,9 +62,9 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
     loss_box = loss_box/len(trainloader)
     loss_pts = loss_pts/len(trainloader)
 
-    wandb.log({'loss_cls': loss_cls, 
-            'loss_box': loss_box, 
-            'loss_landmark': loss_pts})
+    # wandb.log({'loss_cls': loss_cls, 
+    #         'loss_box': loss_box, 
+    #         'loss_landmark': loss_pts})
 
     if epoch_ap>best_ap:
         # export to onnx + pt
@@ -102,8 +102,9 @@ if __name__ == '__main__':
     valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
     
     torch.manual_seed(RANDOM_SEED)
-    trainloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
-    validloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
+
+    trainloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, collate_fn=detection_collate)
+    validloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, collate_fn=detection_collate)
 
     n_classes = N_CLASSES
     epochs = args.epoch

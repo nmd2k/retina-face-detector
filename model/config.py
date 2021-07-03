@@ -7,11 +7,10 @@ TEST_PATH           = './test'
 SAVE_PATH           = './model'
 
 DATASET             = 'wider-face-30k' 
-DVERSION            = ':latest'
+DVERSION            = 'latest'
 INPUT_SIZE          = 640
 BATCH_SIZE          = 32
 RANDOM_SEED         = 42
-VALID_RATIO         = 0.2
 NUM_WORKERS         = 0
 
 # MODEL config ==============
