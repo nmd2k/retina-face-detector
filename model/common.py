@@ -5,13 +5,13 @@ import torch.nn.functional as F
 class Conv_DW(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, leaky=0.1):
         super(Conv_DW, self).__init__()
-        self.conv1  = nn.Conv2d(in_channels, in_channels, 3, stride, 1, bias=False),
-        self.bn1    = nn.BatchNorm2d(in_channels),
+        self.conv1  = nn.Conv2d(in_channels, in_channels, 3, stride, 1, bias=False)
+        self.bn1    = nn.BatchNorm2d(in_channels)
 
-        self.conv2  = nn.Conv2d(in_channels, out_channels, 1, 1, 0, bias=False),
-        self.bn2    = nn.BatchNorm2d(out_channels),
+        self.conv2  = nn.Conv2d(in_channels, out_channels, 1, 1, 0, bias=False)
+        self.bn2    = nn.BatchNorm2d(out_channels)
         
-        self.leaky  = nn.LeakyReLU(negative_slope=leaky, inplace=True),
+        self.leaky  = nn.LeakyReLU(negative_slope=leaky, inplace=True)
 
     def forward(self, input):
         # Depthwise conv block
@@ -30,8 +30,8 @@ class Conv_BN(nn.Module):
     def __init__(self, in_channels, out_channels, kernel=3, stride=1, padding=1, leaky=0, activation=True):
         super(Conv_BN, self).__init__()
 
-        self.conv  = nn.Conv2d(in_channels, out_channels, kernel, stride, padding, bias=False),
-        self.bn    = nn.BatchNorm2d(out_channels),
+        self.conv  = nn.Conv2d(in_channels, out_channels, kernel, stride, padding, bias=False)
+        self.bn    = nn.BatchNorm2d(out_channels)
         self.leaky = nn.LeakyReLU(negative_slope=leaky, inplace=True)
 
         self.activation = activation
