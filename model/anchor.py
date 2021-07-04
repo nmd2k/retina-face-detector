@@ -2,10 +2,11 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from model.config import INPUT_SIZE
+from model.config import *
+from utils.box_utils import point_form
 
 class Anchors(nn.Module):
-    def __init__(self, image_shape=None, pyramid_levels=None, strides=None, sizes=None, ratios=None, scales=None):
+    def __init__(self, image_size=None, feat_shape=None, pyramid_levels=None, strides=None, sizes=None, ratios=None, scales=None):
         super(Anchors, self).__init__()
         # init param
         self.pyramid_levels = pyramid_levels
@@ -13,7 +14,8 @@ class Anchors(nn.Module):
         self.ratios         = ratios
         self.scales         = scales
         self.sizes          = sizes
-        self.image_shape    = image_shape
+        self.feat_shape     = feat_shape
+        self.image_size     = image_size
 
         if pyramid_levels is None:
             # the original pyramid net have P2, P3, P4, P5, P6, C7/P7
@@ -23,7 +25,7 @@ class Anchors(nn.Module):
             self.strides = [2 ** (x) for x in self.pyramid_levels]
 
         if sizes is None:
-            self.sizes = [2 ** (x) for x in self.pyramid_levels]
+            self.sizes = [2 ** (x+1) for x in self.pyramid_levels]
 
         if ratios is None:
             # most of bounding box in wider face were 1/2 and 2 in ratio aspect
@@ -33,9 +35,11 @@ class Anchors(nn.Module):
             # defaul scale defined in paper is 2^(1/3)
             self.scales = [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]
 
-        if image_shape is None:
-            shape = np.array([INPUT_SIZE, INPUT_SIZE])
-            self.image_shape = [(shape + x - 1) // x for x in self.strides]
+        if image_size is None: 
+            self.image_size = np.array([INPUT_SIZE, INPUT_SIZE])
+
+        if feat_shape is None:
+            self.feat_shape = [(self.image_size + x - 1) // x for x in self.strides]
         
     def forward(self):
         # compute anchors over all pyramid levels
@@ -44,16 +48,17 @@ class Anchors(nn.Module):
         for idx, p in enumerate(self.pyramid_levels):
             anchors         = generate_anchors(base_size=self.sizes[idx], ratios=self.ratios, scales=self.scales)
             anchors         = torch.from_numpy(anchors).to(dtype=torch.float)
-            shifted_anchors = shift(self.image_shape[idx], self.strides[idx], anchors)
+            shifted_anchors = shift(self.feat_shape[idx], self.strides[idx], anchors)
+            shifted_anchors = self.image_size[0]
+            
             all_anchors     = np.append(all_anchors, shifted_anchors, axis=0)
-
 
         all_anchors = torch.from_numpy(all_anchors).to(dtype=torch.float)
         # all_anchors = all_anchors.unsqueeze(0)
 
         return all_anchors
 
-def generate_anchors(num_anchors=None,base_size=16, ratios=None, scales=None):
+def generate_anchors(num_anchors=None, base_size=8, ratios=None, scales=None):
     """
     Generate anchor (reference) windows by enumerating aspect ratios X
     scales w.r.t. a reference window.
@@ -78,13 +83,14 @@ def generate_anchors(num_anchors=None,base_size=16, ratios=None, scales=None):
     areas = anchors[:, 2] * anchors[:, 3]
 
     # correct for ratios
-    anchors[:, 2] = np.sqrt(areas / np.repeat(ratios, len(scales)))
-    anchors[:, 3] = anchors[:, 2] * np.repeat(ratios, len(scales))
+    anchors[:, 3] = np.sqrt(areas / np.repeat(ratios, len(scales))) # h
+    anchors[:, 2] = anchors[:, 3] * np.repeat(ratios, len(scales))  # w
 
     # transform from (x_ctr, y_ctr, w, h) -> (x1, y1, x2, y2)
-    anchors[:, 0::2] -= np.tile(anchors[:, 2] * 0.5, (2, 1)).T
-    anchors[:, 1::2] -= np.tile(anchors[:, 3] * 0.5, (2, 1)).T
+    # anchors[:, 0::2] -= np.tile(anchors[:, 2] * 0.5, (2, 1)).T
+    # anchors[:, 1::2] -= np.tile(anchors[:, 3] * 0.5, (2, 1)).T
 
+    # keep it form (0, 0, w, h)
     return anchors
 
 def shift(shape, stride, anchors):
@@ -97,7 +103,7 @@ def shift(shape, stride, anchors):
         shift_x.ravel(), shift_y.ravel(),
         shift_x.ravel(), shift_y.ravel()
     )).transpose()
-    
+
     # add A anchors (1, A, 4) to
     # cell K shifts (K, 1, 4) to get
     # shift anchors (K, A, 4)
@@ -106,5 +112,6 @@ def shift(shape, stride, anchors):
     K = shifts.shape[0]
     all_anchors = (anchors.reshape((1, A, 4)) + shifts.reshape((1, K, 4)).transpose((1, 0, 2)))
     all_anchors = all_anchors.reshape((K * A, 4))
+    all_anchors = point_form(all_anchors)
 
     return all_anchors
