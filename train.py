@@ -20,7 +20,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train image segmentation')
     parser.add_argument('--run', type=str, default=RUN_NAME, help="run name")
     parser.add_argument('--epoch', type=int, default=EPOCHS, help="number of epoch")
-    parser.add_argument('--model', type=str, default='mobilenet0.25', help='select model')
+    parser.add_argument('--model', type=str, default='resnet50', help='select model')
     parser.add_argument('--weight', type=str, default=None, help='path to pretrained weight')
     parser.add_argument('--weight_decay', type=int, default=WEIGHT_DECAY, help="weight decay of optimizer")
     parser.add_argument('--momentum', type=int, default=MOMENTUM, help="momemtum of optimizer")
@@ -33,10 +33,10 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device='cpu'):
+def train(model, anchors, trainloader, optimizer, loss_function, device='cpu'):
     model.train()
     loss_cls, loss_box, loss_pts = 0, 0, 0
-    epoch_ap = 0
+    
     for i, (input, targets) in enumerate(trainloader):
         # load data into cuda
         input   = input.to(device)
@@ -44,9 +44,6 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
 
         # forward
         loss, loss_l, loss_c, loss_landm = forward(model, input, targets, anchors, loss_function)
-        # predict = model(input)
-        # loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
-        # loss = 1.3*loss_l + loss_c + loss_landm
 
         # metric
         loss_cls += loss_c
@@ -56,6 +53,8 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
         # zero the gradient + backprpagation + step
         optimizer.zero_grad()
 
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+
         loss.backward()
         optimizer.step()
     
@@ -64,12 +63,42 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
     loss_box = loss_box/len(trainloader)
     loss_pts = loss_pts/len(trainloader)
 
+    return loss_cls, loss_box, loss_pts
+
+def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
+    model.eval()
+    loss_cls, loss_box, loss_pts = 0, 0, 0
+    epoch_ap, count_img, count_target = 0, 0, 0
+    with torch.no_grad():
+        for i, (input, targets) in enumerate(validloader):
+            # load data into cuda
+            input   = input.to(device)
+            targets = [annos.to(device) for annos in targets]
+
+            # forward
+            loss, loss_l, loss_c, loss_landm = forward(model, input, targets, anchors, loss_function)
+
+            # metric
+            loss_cls += loss_c
+            loss_box += loss_l 
+            loss_pts += loss_landm
+
+            # summary
+            count_img += input.shape[0]
+            for target in targets:
+                count_target += target.shape[0]
+    
+    loss_cls = loss_cls/len(validloader)
+    loss_box = loss_box/len(validloader)
+    loss_pts = loss_pts/len(validloader)
+
+    epoch_summary = [count_img, count_target]
+
     if epoch_ap>best_ap:
-        # export to onnx + pt
-        torch.onnx.export(model, input, os.path.join(save_dir, 'weight.onnx'))
+    # export to onnx + pt
         torch.save(model.state_dict(), os.path.join(save_dir, 'weight.pth'))
 
-    return loss_cls, loss_box, loss_pts, epoch_ap
+    return loss_cls, loss_box, loss_pts, epoch_summary, epoch_ap
 
 if __name__ == '__main__':
     args = parse_args()
@@ -92,13 +121,13 @@ if __name__ == '__main__':
 
     # train on device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"\tCurrent training device {torch.cuda.get_device_name(device)}".expandtabs(4))
+    print(f"\tCurrent training device {torch.cuda.get_device_name(device)}")
 
     # get dataloader
     train_set = WiderFaceDataset(root_path=DATA_PATH, is_train=True)
     valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
     
-    print(f"\tNumber of training example: {len(train_set)}\n\tNumber of validation example: {len(valid_set)}".expandtabs(4))
+    print(f"\tNumber of training example: {len(train_set)}\n\tNumber of validation example: {len(valid_set)}")
 
     torch.manual_seed(RANDOM_SEED)
 
@@ -111,7 +140,7 @@ if __name__ == '__main__':
     save_dir = create_exp_dir()
 
     # get model and define loss func, optimizer
-    model = RetinaFace(model_name=args.model).to(device)
+    model = RetinaFace(model_name=args.model, freeze_backbone=True).to(device)
 
     with torch.no_grad():
         anchors = Anchors(pyramid_levels=model.feature_map).forward().to(device)
@@ -134,19 +163,23 @@ if __name__ == '__main__':
     best_ap = -1
 
     for epoch in range(epochs):
-        print(f'\t'.expandtabs(4), f'Epoch\tbox\t\tlandmarks\tcls\t\ttotal')
+        print(f'\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal')
         t0 = time.time()
-        loss_box, loss_pts, loss_cls, train_ap = train(model, anchors, trainloader, optimizer, criterion, best_ap, device)
+        loss_box, loss_pts, loss_cls = train(model, anchors, trainloader, optimizer, criterion, device)
         t1 = time.time()
 
         total_loss = loss_box + loss_pts + loss_cls
+        # epoch
         wandb.log({'loss_cls': loss_cls, 'loss_box': loss_box, 'loss_landmark': loss_pts}, step=epoch)
-        print(f'\t'.expandtabs(4), f'{epoch+1}/{epochs}\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{total_loss:.5f}\t\t{(t1-t0):.2f}s')
+        print(f'\t{epoch+1}/{epochs}\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{total_loss:.5f}\t\t{(t1-t0):.2f}s')
         
         # summary
-        # print(f'\tImages\tLabels\t\tP\t\tR\t\tmAP@.5\t\tmAP.5.95')
+        loss_box, loss_pts, loss_cls, summary, valid_ap = evaluate(model, anchors, validloader, criterion, best_ap, device)
+        wandb.log({'val.loss_cls': loss_cls, 'val.loss_box': loss_box, 'val.loss_landmark': loss_pts}, step=epoch)
+
         # images, labels, P, R, map_5, map_95
-        # print(f'\t{images}\t{labels}\t\t{P}\t\t{R}\t\t{map_5}\t\t{map_95}')
+        # print(f'\tImages\tLabels\t\tP\t\tR\t\tmAP@.5\t\tmAP.5.95')
+        # print(f'\t{summary[0]}\t{summary[1]}\t\t{P}\t\t{R}\t\t{map_5}\t\t{map_95}')
     
         wandb.log({"lr": scheduler.get_last_lr()[0]}, step=epoch)
         
@@ -154,8 +187,8 @@ if __name__ == '__main__':
         scheduler.step()
 
         # Wandb summary
-        if train_ap > best_ap:
-            best_ap = train_ap
+        if valid_ap > best_ap:
+            best_ap = valid_ap
             wandb.run.summary["best_accuracy"] = best_ap
 
     if not args.tuning:

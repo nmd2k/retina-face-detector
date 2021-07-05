@@ -89,10 +89,12 @@ class FPN(nn.Module):
         """
         super(FPN, self).__init__()
         assert len(in_channels_list) == 4
+        # [IN_CHANNELS*2, IN_CHANNELS*4, IN_CHANNELS*8, IN_CHANNELS*16]
         self.layer_feature_1 = Conv_BN(in_channels_list[0], out_channels, 1, padding=0, leaky=leaky)
         self.layer_feature_2 = Conv_BN(in_channels_list[1], out_channels, 1, padding=0, leaky=leaky)
         self.layer_feature_3 = Conv_BN(in_channels_list[2], out_channels, 1, padding=0, leaky=leaky)
-        self.layer_feature_4 = Conv_BN(in_channels_list[2], out_channels, 3, stride=2, leaky=leaky)
+        self.layer_feature_4 = Conv_BN(in_channels_list[3], out_channels, 1, padding=0, leaky=leaky)
+        self.layer_feature_5 = Conv_BN(in_channels_list[3], out_channels, 3, stride=2, leaky=leaky)
 
         self.merge           = Conv_BN(out_channels, out_channels, leaky=leaky)
         self.upsample        = nn.Upsample(scale_factor=2, mode='nearest')
@@ -115,10 +117,16 @@ class FPN(nn.Module):
         output1 = self.layer_feature_1(input[0])
         output2 = self.layer_feature_2(input[1])
         output3 = self.layer_feature_3(input[2])
-        output4 = self.layer_feature_4(input[2]) # input[2] is output of Layer 3
+        output4 = self.layer_feature_4(input[4])
+        output5 = self.layer_feature_5(input[4])
 
+        output5 = self.upsample(output5)
         output4 = self.upsample(output4)
+
+        up4     = F.interpolate(output4, size=[output3.size(2), output3.size(3)], mode="nearest")
+        output3 = output3 + up4
         output3 = self.upsample(output3)
+        output3 = self.merge(output3)
 
         up3     = F.interpolate(output3, size=[output2.size(2), output2.size(3)], mode="nearest")
         output2 = output2 + up3
@@ -130,7 +138,7 @@ class FPN(nn.Module):
         output1 = self.upsample(output1)
         output1 = self.merge(output1)
 
-        return [output1, output2, output3, output4]
+        return [output1, output2, output3, output4, output5]
 
 class MobileNetV1(nn.Module):
     def __init__(self, in_channels=3, out_channels=1000, start_frame=32):
