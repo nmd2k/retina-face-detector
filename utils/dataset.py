@@ -75,8 +75,6 @@ class WiderFaceDataset(Dataset):
         if self.transform is not None:
             img, annotations = self.transform(image=img, targets=annotations)
 
-        # print(f'Image {img.shape}\nAnnos: {annotations.shape}')
-
         return img, annotations
 
 def log_dataset(use_artifact, 

@@ -11,3 +11,5 @@
 *.run.xml
 *.synctex.gz
 *.toc
+*.pth
+*.onnx

@@ -4,7 +4,7 @@ from math import sqrt, pow
 import torch.nn.functional as F
 
 from model._utils import IntermediateLayerGetter
-from model.config import FEATURE_MAP_MOBN1, FEATURE_MAP_MOBN2, IN_CHANNELS, OUT_CHANNELS, RETURN_MAP_MOBN1
+from model.config import FEATURE_MAP_MOBN1, FEATURE_MAP_MOBN2, IN_CHANNELS, OUT_CHANNELS, RETURN_MAP_MOBN1, START_FRAME
 from model.common import FPN, SSH, MobileNetV1
 
 class ClassHead(nn.Module):
@@ -58,7 +58,7 @@ class RetinaFace(nn.Module):
         # load backbone
         backbone = None
         if model_name == 'mobilenet0.25':
-            backbone            = MobileNetV1()
+            backbone            = MobileNetV1(start_frame=START_FRAME)
             return_feature      = RETURN_MAP_MOBN1
             self.feature_map    = FEATURE_MAP_MOBN1
             num_fpn             = len(self.feature_map)

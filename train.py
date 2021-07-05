@@ -46,10 +46,9 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
         # forward
         predict = model(input)
         loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
-        loss = 2.0*loss_l + loss_c + loss_landm
+        loss = 1.3*loss_l + loss_c + loss_landm
 
         # metric
-        # TODO: log ap
         loss_cls += loss_c
         loss_box += loss_l 
         loss_pts += loss_landm
@@ -120,11 +119,11 @@ if __name__ == '__main__':
     # optimizer + citeration
     optimizer   = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     criterion   = MultiBoxLoss(N_CLASSES, 
-                            overlap_thresh=OVERLAP_THRES, 
-                            prior_for_matching=True, 
-                            bkg_label=BKG_LABEL, neg_pos=True, 
-                            neg_mining=NEG_MINING, neg_overlap=NEG_OVERLAP, 
-                            encode_target=False, device=device)
+                    overlap_thresh=OVERLAP_THRES, 
+                    prior_for_matching=True, 
+                    bkg_label=BKG_LABEL, neg_pos=True, 
+                    neg_mining=NEG_MINING, neg_overlap=NEG_OVERLAP, 
+                    encode_target=False, device=device)
 
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=LR_MILESTONE, gamma=0.7)
 
@@ -142,7 +141,7 @@ if __name__ == '__main__':
 
         total_loss = loss_box + loss_pts + loss_cls
         wandb.log({'loss_cls': loss_cls, 'loss_box': loss_box, 'loss_landmark': loss_pts}, step=epoch)
-        print(f'\t{epoch}/{epochs}\t{loss_box}\t\t{loss_pts}\t\t{loss_cls:.5f}\t\t{():.5f}\t\t{(t1-t0):.2f}s'.expandtabs(4))
+        print(f'\t{epoch}/{epochs}\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{total_loss:.5f}\t\t{(t1-t0):.2f}s'.expandtabs(4))
         
         # summary
         # print(f'\tImages\tLabels\t\tP\t\tR\t\tmAP@.5\t\tmAP.5.95')
