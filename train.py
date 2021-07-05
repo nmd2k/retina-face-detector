@@ -66,8 +66,8 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
 
     if epoch_ap>best_ap:
         # export to onnx + pt
-        torch.onnx.export(model, input, os.path.join(SAVE_PATH+args.run+'.onnx'))
-        torch.save(model.state_dict(), os.path.join(SAVE_PATH+args.run+'.pth'))
+        torch.onnx.export(model, input, os.path.join(save_dir, 'weight.onnx'))
+        torch.save(model.state_dict(), os.path.join(save_dir, 'weight.pth'))
 
     return loss_cls, loss_box, loss_pts, epoch_ap
 
@@ -159,7 +159,7 @@ if __name__ == '__main__':
             wandb.run.summary["best_accuracy"] = best_ap
 
     if not args.tuning:
-        trained_weight = wandb.Artifact(args.run, type='weights')
-        trained_weight.add_file(SAVE_PATH+args.run+'.onnx')
-        trained_weight.add_file(SAVE_PATH+args.run+'.pth')
+        trained_weight = wandb.Artifact(args.run, type='WEIGHTS')
+        trained_weight.add_file(os.path.join(save_dir, 'weight.onnx'))
+        trained_weight.add_file(os.path.join(save_dir, 'weight.pth'))
         wandb.log_artifact(trained_weight)
