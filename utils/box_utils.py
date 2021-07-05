@@ -75,10 +75,8 @@ def match(threshold, truths, priors, variances, labels, landms, loc_t, conf_t, l
         The matched indices corresponding to 1)location 2)confidence 3)landm preds.
     """
     # jaccard index
-    overlaps = jaccard(
-        truths,
-        point_form(priors)
-    )
+    overlaps = jaccard(truths, priors)
+
     # (Bipartite Matching)
     # [1,num_objects] best prior for each ground truth
     best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)
@@ -86,10 +84,12 @@ def match(threshold, truths, priors, variances, labels, landms, loc_t, conf_t, l
     # ignore hard gt
     valid_gt_idx = best_prior_overlap[:, 0] >= 0.2
     best_prior_idx_filter = best_prior_idx[valid_gt_idx, :]
+
     if best_prior_idx_filter.shape[0] <= 0:
         loc_t[idx] = 0
         conf_t[idx] = 0
-        return
+
+        return loc_t, conf_t, landm_t
 
     # [1,num_priors] best ground truth for each prior
     best_truth_overlap, best_truth_idx = overlaps.max(0, keepdim=True)
@@ -113,6 +113,8 @@ def match(threshold, truths, priors, variances, labels, landms, loc_t, conf_t, l
     loc_t[idx] = loc    # [num_priors,4] encoded offsets to learn
     conf_t[idx] = conf  # [num_priors] top class label for each prior
     landm_t[idx] = landm
+
+    return loc_t, conf_t, landm_t
 
 def encode(matched, priors, variances):
     """Encode the variances from the priorbox layers into the ground truth boxes

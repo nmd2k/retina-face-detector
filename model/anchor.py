@@ -49,7 +49,7 @@ class Anchors(nn.Module):
             anchors         = generate_anchors(base_size=self.sizes[idx], ratios=self.ratios, scales=self.scales)
             anchors         = torch.from_numpy(anchors).to(dtype=torch.float)
             shifted_anchors = shift(self.feat_shape[idx], self.strides[idx], anchors)
-            shifted_anchors = self.image_size[0]
+            shifted_anchors = shifted_anchors/self.image_size[0]
             
             all_anchors     = np.append(all_anchors, shifted_anchors, axis=0)
 
@@ -110,7 +110,12 @@ def shift(shape, stride, anchors):
     # reshape to (K*A, 4) shifted anchors
     A = anchors.shape[0]
     K = shifts.shape[0]
-    all_anchors = (anchors.reshape((1, A, 4)) + shifts.reshape((1, K, 4)).transpose((1, 0, 2)))
+
+    re_anchors  = anchors.reshape((1, A, 4))
+    shifted     = shifts.reshape((1, K, 4)).transpose((1, 0, 2))
+    shifted[:,:,2:] = 0 # format (x_c, y_c, w, h) need to maintain w, h
+
+    all_anchors = re_anchors + shifted
     all_anchors = all_anchors.reshape((K * A, 4))
     all_anchors = point_form(all_anchors)
 
