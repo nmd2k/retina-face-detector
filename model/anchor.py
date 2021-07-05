@@ -50,11 +50,10 @@ class Anchors(nn.Module):
             anchors         = torch.from_numpy(anchors).to(dtype=torch.float)
             shifted_anchors = shift(self.feat_shape[idx], self.strides[idx], anchors)
             shifted_anchors = shifted_anchors/self.image_size[0]
-            
+
             all_anchors     = np.append(all_anchors, shifted_anchors, axis=0)
 
         all_anchors = torch.from_numpy(all_anchors).to(dtype=torch.float)
-        # all_anchors = all_anchors.unsqueeze(0)
 
         return all_anchors
 

@@ -1,4 +1,3 @@
-from model.anchor import Anchors
 import os 
 import time
 import wandb
@@ -9,12 +8,12 @@ from torch import optim
 from torch.utils.data import DataLoader, dataloader
 
 from model.config import *
+from model.anchor import Anchors
 from utils.mlops_tool import use_data_wandb
-from model.model import RetinaFace
+from model.model import RetinaFace, forward
 from utils.data_tool import create_exp_dir
 from model.multibox_loss import MultiBoxLoss
 from utils.dataset import WiderFaceDataset, detection_collate
-
 
 def parse_args():
     """parse command line arguments"""
@@ -44,9 +43,10 @@ def train(model, anchors, trainloader, optimizer, loss_function, best_ap, device
         targets = [annos.to(device) for annos in targets]
 
         # forward
-        predict = model(input)
-        loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
-        loss = 1.3*loss_l + loss_c + loss_landm
+        loss, loss_l, loss_c, loss_landm = forward(model, input, targets, anchors, loss_function)
+        # predict = model(input)
+        # loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
+        # loss = 1.3*loss_l + loss_c + loss_landm
 
         # metric
         loss_cls += loss_c
@@ -134,14 +134,14 @@ if __name__ == '__main__':
     best_ap = -1
 
     for epoch in range(epochs):
-        print(f'\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal'.expandtabs(4))
+        print(f'\t'.expandtabs(4), f'Epoch\tbox\t\tlandmarks\tcls\t\ttotal')
         t0 = time.time()
         loss_box, loss_pts, loss_cls, train_ap = train(model, anchors, trainloader, optimizer, criterion, best_ap, device)
         t1 = time.time()
 
         total_loss = loss_box + loss_pts + loss_cls
         wandb.log({'loss_cls': loss_cls, 'loss_box': loss_box, 'loss_landmark': loss_pts}, step=epoch)
-        print(f'\t{epoch}/{epochs}\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{total_loss:.5f}\t\t{(t1-t0):.2f}s'.expandtabs(4))
+        print(f'\t'.expandtabs(4), f'{epoch+1}/{epochs}\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{total_loss:.5f}\t\t{(t1-t0):.2f}s')
         
         # summary
         # print(f'\tImages\tLabels\t\tP\t\tR\t\tmAP@.5\t\tmAP.5.95')
