@@ -42,10 +42,7 @@ class WiderFaceDataset(Dataset):
         f = open(os.path.join(self.path, 'labels', self.ids[index]+'.txt'), 'r')
         lines = f.readlines()
 
-        if self.is_train:
-            annotations = np.zeros((len(lines), 15))
-        else:
-            annotations = np.zeros((len(lines), 5))
+        annotations = np.zeros((len(lines), 15)) 
 
         if len(lines) == 0:
             return annotations
@@ -79,7 +76,7 @@ class WiderFaceDataset(Dataset):
                     annotations[idx, 14] = 1
             
             else:
-                annotations[idx, 5] = 1
+                annotations[idx, 14] = 1
 
         if self.transform is not None:
             img, annotations = self.transform(image=img, targets=annotations)

@@ -70,7 +70,7 @@ def train(model, anchors, trainloader, optimizer, loss_function, device='cpu'):
 def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
     model.eval()
     loss_cls, loss_box, loss_pts = 0, 0, 0
-    count_img, count_target = 0, 0, 0
+    count_img, count_target = 0, 0
     ap_5, ap_5_95 = 0, 0
 
     with torch.no_grad():
@@ -87,7 +87,9 @@ def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
             loss_box += loss_l 
             loss_pts += loss_landm
 
-            ap_5, ap_5_95 += calculate_running_map(targets, predict)
+            # bap_5, bap_5_95 = calculate_running_map(targets, predict)
+            # ap_5    += bap_5
+            # ap_5_95 += bap_5_95
 
             # summary
             count_img += input.shape[0]
@@ -189,8 +191,9 @@ if __name__ == '__main__':
         loss_box, loss_pts, loss_cls, summary = evaluate(model, anchors, validloader, criterion, best_ap, device)
 
         # images, labels, P, R, map_5, map_95
-        print(f'\tImages\tLabels\t\tmAP@.5\t\tmAP.5.95')
-        print(f'\t{summary[0]}\t{summary[1]}\t\t{summary[2]}\t\t{summary[3]}')
+        print(f'\tImages\tLabels\tbox\t\tlandmarks\tcls\tmAP@.5\t\tmAP.5.95')
+        # print(f'\t{summary[0]}\t{summary[1]}\t\t{summary[2]}\t\t{summary[3]}')
+        print(f'\t{summary[0]}\t{summary[1]}\t\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{(t1-t0):.2f}s')
     
         wandb.log({'val.loss_cls': loss_cls, 'val.loss_box': loss_box, 'val.loss_landmark': loss_pts}, step=epoch)
         wandb.log({'metric.map@.5': summary[2], 'metric.map@.5:.95': summary[3]}, step=epoch)

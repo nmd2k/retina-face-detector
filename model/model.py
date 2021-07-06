@@ -160,4 +160,4 @@ def forward(model, input, targets, anchors, loss_function):
     loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
     loss = 1.3*loss_l + loss_c + loss_landm
 
-    return loss, loss_l.item(), loss_c.item(), loss_landm.item(), predict.item()
+    return loss, loss_l.item(), loss_c.item(), loss_landm.item(), predict

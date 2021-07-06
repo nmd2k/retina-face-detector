@@ -11,7 +11,7 @@ SAVE_PATH           = './model'
 DATASET             = 'wider-face-4k' 
 DVERSION            = 'latest'
 INPUT_SIZE          = 640
-BATCH_SIZE          = 1
+BATCH_SIZE          = 8
 RANDOM_SEED         = 42
 NUM_WORKERS         = 0
 

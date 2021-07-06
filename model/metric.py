@@ -3,8 +3,10 @@ import torch
 import numpy as np
 from utils.box_utils import jaccard
 
-def get_mappings(iou_mat, pr_count):
+def get_mappings(iou_mat):
     mappings = torch.zeros_like(iou_mat)
+    gt_count, pr_count = iou_mat.shape
+    
     #first mapping (max iou for first pred_box)
     if not iou_mat[:,0].eq(0.).all():
         # if not a zero column
@@ -31,14 +33,13 @@ def get_mappings(iou_mat, pr_count):
 
 def calculate_map(gt_boxes,pr_boxes,scores,thresh=0.5,form='pascal_voc'):
     # sorting
-    pr_boxes = pr_boxes[scores.argsort().flip(-1)]
-    iou_mat = jaccard(gt_boxes,pr_boxes,form)
-    gt_count, pr_count = iou_mat.shape
+    pr_boxes = pr_boxes[scores[:, 1].argsort().flip(-1)]
+    iou_mat = jaccard(gt_boxes,pr_boxes)
     
     # thresholding
-    iou_mat = iou_mat.where(iou_mat>thresh, torch.tensor(0.))
+    iou_mat = iou_mat.where(iou_mat>thresh, torch.tensor(0.).cuda())
     
-    mappings = get_mappings(iou_mat, pr_count)
+    mappings = get_mappings(iou_mat)
     
     # mAP calculation
     tp = mappings.sum()
@@ -46,7 +47,7 @@ def calculate_map(gt_boxes,pr_boxes,scores,thresh=0.5,form='pascal_voc'):
     fn = mappings.sum(1).eq(0).sum()
     mAP = tp / (tp+fp+fn)
     
-    return mAP
+    return mAP.cpu().numpy()
 
 def calculate_running_map(targets, prediction):
     map_5, map_5_95 = [] , []
@@ -57,7 +58,7 @@ def calculate_running_map(targets, prediction):
     for idx in range(num):
         truths = targets[idx][:, :4].data
 
-        for thresh in range(0.5, 0.95, 0.05):
+        for thresh in np.arange(0.5, 0.95, 0.05):
             map = calculate_map(truths, loc_data[idx], conf_data[idx], thresh)
             map_5_95.append(map)
 
