@@ -5,6 +5,7 @@ import torch
 import argparse
 import numpy as np
 from torch import optim
+import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader, dataloader
 
 from model.config import *
@@ -31,6 +32,7 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=LEARNING_RATE, help="init learning rate (default: 0.0001)")
     parser.add_argument('--download', action='store_true', help="download dataset from Wandb Database")
     parser.add_argument('--tuning', action='store_true', help="no plot image for tuning")
+    parser.add_argument('--device', type=int, default=None, help="no plot image for tuning")
 
     args = parser.parse_args()
     return args
@@ -127,7 +129,10 @@ if __name__ == '__main__':
     use_data_wandb(run=run, data_name=DATASET, download=args.download)
 
     # train on device
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
+
+    if args.device is not None:
+        device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"\tCurrent training device {torch.cuda.get_device_name(device)}")
 
     # get dataloader
@@ -151,6 +156,7 @@ if __name__ == '__main__':
     if args.weight is not None and os.path.isfile(args.weight):
         checkpoint = torch.load(args.weight)
         model.load_state_dict(checkpoint)
+    cudnn.benchmark = True
 
     with torch.no_grad():
         anchors = Anchors(pyramid_levels=model.feature_map).forward().to(device)

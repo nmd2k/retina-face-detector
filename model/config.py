@@ -23,8 +23,8 @@ LR_MILESTONE        = [4,9,14,19]
 WEIGHT_DECAY        = 5e-4
 MOMENTUM            = 0.9
 
-IN_CHANNELS         = 128
-OUT_CHANNELS        = 512
+IN_CHANNELS         = 32
+OUT_CHANNELS        = 128
 
 # MobileNetV1
 # FEATURE_MAP_MOBN1   =  {'layer2': 160,
