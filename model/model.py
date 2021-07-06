@@ -70,9 +70,17 @@ class RetinaFace(nn.Module):
             return_feature = FEATURE_MAP_MOBN2
             backbone = torch.hub.load('pytorch/vision:v0.9.0', 'mobilenet_v2', pretrained=True)
         
-        elif model_name == 'resnet50':
+        elif 'resnet' in model_name:
             import torchvision.models as models
-            backbone = models.resnet50(pretrained=True)
+            if '18' in  model_name:
+                backbone = models.resnet18(pretrained=True)
+
+            elif '34' in  model_name:
+                backbone = models.resnet34(pretrained=True)
+
+            elif '50' in model_name:
+                backbone = models.resnet50(pretrained=True)
+            
             return_feature      = RETURN_MAP
             self.feature_map    = FEATURE_MAP
 
