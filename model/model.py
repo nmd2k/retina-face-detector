@@ -151,7 +151,7 @@ class RetinaFace(nn.Module):
         output = (bbox_regressions, classifications, ldm_regressions)
         return output
 
-def forward(model, input, targets, anchors, loss_function):
+def forward(model, input, targets, anchors, loss_function, optimizer):
     """Due to the probability of OOM problem can happen, which might
     cause the "CUDA out of memory". I've passed all require grad into
     a function to free it while there is nothing refer to it.
@@ -160,4 +160,16 @@ def forward(model, input, targets, anchors, loss_function):
     loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
     loss = 1.3*loss_l + loss_c + loss_landm
 
-    return loss, loss_l.item(), loss_c.item(), loss_landm.item(), predict
+    loss_l      = loss_l.item()
+    loss_c      = loss_c.item()
+    loss_landm  = loss_landm.item()
+
+    # zero the gradient + backprpagation + step
+    optimizer.zero_grad()
+
+    # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+
+    loss.backward()
+    optimizer.step()
+
+    return loss_l, loss_c, loss_landm

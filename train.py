@@ -44,21 +44,13 @@ def train(model, anchors, trainloader, optimizer, loss_function, device='cpu'):
         input   = input.to(device)
         targets = [annos.to(device) for annos in targets]
 
-        # forward
-        loss, loss_l, loss_c, loss_landm, predict = forward(model, input, targets, anchors, loss_function)
+        # forward + backpropagation + step
+        loss_l, loss_c, loss_landm = forward(model, input, targets, anchors, loss_function, optimizer)
 
         # metric
         loss_cls += loss_c
         loss_box += loss_l 
         loss_pts += loss_landm
-
-        # zero the gradient + backprpagation + step
-        optimizer.zero_grad()
-
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
-
-        loss.backward()
-        optimizer.step()
 
         # free after backward
         torch.cuda.empty_cache()
@@ -83,7 +75,8 @@ def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
             targets = [annos.to(device) for annos in targets]
 
             # forward
-            loss, loss_l, loss_c, loss_landm, predict = forward(model, input, targets, anchors, loss_function)
+            predict = model(input)
+            loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
 
             # metric
             loss_cls += loss_c
