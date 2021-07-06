@@ -59,6 +59,9 @@ def train(model, anchors, trainloader, optimizer, loss_function, device='cpu'):
 
         loss.backward()
         optimizer.step()
+
+        # free after backward
+        torch.cuda.empty_cache()
     
     # cls = classification; box = box regressionl; pts = landmark regression
     loss_cls = loss_cls/len(trainloader)
