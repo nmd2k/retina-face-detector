@@ -1,136 +1,70 @@
-# author: github.com/ternaus/iglovikov_helper_functions/
+# author: www.kaggle.com/kshitijpatil09/pytorch-mean-absolute-precision-calculation
 import torch
 import numpy as np
-from typing import Tuple, Any, List
-from collections import defaultdict
+from utils.box_utils import jaccard
 
+def get_mappings(iou_mat, pr_count):
+    mappings = torch.zeros_like(iou_mat)
+    #first mapping (max iou for first pred_box)
+    if not iou_mat[:,0].eq(0.).all():
+        # if not a zero column
+        mappings[iou_mat[:,0].argsort()[-1],0] = 1
 
-def get_envelope(precisions: np.ndarray) -> np.array:
-    """Compute the envelope of the precision curve.
-    Args:
-      precisions:
-    Returns: enveloped precision
-    """
-    for i in range(precisions.size - 1, 0, -1):
-        precisions[i - 1] = np.maximum(precisions[i - 1], precisions[i])
-    return precisions
+    for pr_idx in range(1,pr_count):
+        # Sum of all the previous mapping columns will let 
+        # us know which gt-boxes are already assigned
+        not_assigned = torch.logical_not(mappings[:,:pr_idx].sum(1)).long()
 
+        # Considering unassigned gt-boxes for further evaluation 
+        targets = not_assigned * iou_mat[:,pr_idx]
 
-def get_overlaps(gt_boxes: np.ndarray, box: np.ndarray) -> np.ndarray:
-    i_xmin = np.maximum(gt_boxes[:, 0], box[0])
-    i_ymin = np.maximum(gt_boxes[:, 1], box[1])
+        # If no gt-box satisfy the previous conditions
+        # for the current pred-box, ignore it (False Positive)
+        if targets.eq(0).all():
+            continue
 
-    gt_xmax = gt_boxes[:, 0] + gt_boxes[:, 2]
-    gt_ymax = gt_boxes[:, 1] + gt_boxes[:, 3]
+        # max-iou from current column after all the filtering
+        # will be the pivot element for mapping
+        pivot = targets.argsort()[-1]
+        mappings[pivot,pr_idx] = 1
+    return mappings
 
-    box_xmax = box[0] + box[2]
-    box_ymax = box[1] + box[3]
+def calculate_map(gt_boxes,pr_boxes,scores,thresh=0.5,form='pascal_voc'):
+    # sorting
+    pr_boxes = pr_boxes[scores.argsort().flip(-1)]
+    iou_mat = jaccard(gt_boxes,pr_boxes,form)
+    gt_count, pr_count = iou_mat.shape
+    
+    # thresholding
+    iou_mat = iou_mat.where(iou_mat>thresh, torch.tensor(0.))
+    
+    mappings = get_mappings(iou_mat, pr_count)
+    
+    # mAP calculation
+    tp = mappings.sum()
+    fp = mappings.sum(0).eq(0).sum()
+    fn = mappings.sum(1).eq(0).sum()
+    mAP = tp / (tp+fp+fn)
+    
+    return mAP
 
-    i_xmax = np.minimum(gt_xmax, box_xmax)
-    i_ymax = np.minimum(gt_ymax, box_ymax)
+def calculate_running_map(targets, prediction):
+    map_5, map_5_95 = [] , []
 
-    iw = np.maximum(i_xmax - i_xmin, 0.0)
-    ih = np.maximum(i_ymax - i_ymin, 0.0)
+    loc_data, conf_data, landm_data = prediction
+    num = loc_data.size(0)
+    
+    for idx in range(num):
+        truths = targets[idx][:, :4].data
 
-    intersection = iw * ih
+        for thresh in range(0.5, 0.95, 0.05):
+            map = calculate_map(truths, loc_data[idx], conf_data[idx], thresh)
+            map_5_95.append(map)
 
-    union = box[2] * box[3] + gt_boxes[:, 2] * gt_boxes[:, 3] - intersection
+            if thresh == 0.5:
+                map_5.append(map)
 
-    overlaps = intersection / (union + 1e-7)
-
-    return overlaps
-
-
-def get_ap(recalls: np.ndarray, precisions: np.ndarray) -> float:
-    """Calculate area under precision/recall curve.
-    Args:
-      recalls:
-      precisions:
-    Returns:
-    """
-    # correct AP calculation
-    # first append sentinel values at the end
-    recalls = np.concatenate(([0.0], recalls, [1.0]))
-    precisions = np.concatenate(([0.0], precisions, [0.0]))
-
-    precisions = get_envelope(precisions)
-
-    # to calculate area under PR curve, look for points where X axis (recall) changes value
-    i = np.where(recalls[1:] != recalls[:-1])[0]
-
-    # and sum (\Delta recall) * prec
-    ap = np.sum((recalls[i + 1] - recalls[i]) * precisions[i + 1])
-    return ap
-
-def group_by_key(list_dicts: List[dict], key: Any) -> defaultdict:
-    """Groups list of dictionaries by key.
-    >>> c = [{"a": 1, "b": "Wednesday"}, {"a": (1, 2, 3), "b": 16.5}]
-    defaultdict(list,
-            {1: [{'a': 1, 'b': 'Wednesday'}],
-             (1, 2, 3): [{'a': (1, 2, 3), 'b': 16.5}]})
-    Args:
-        list_dicts:
-        key:
-    Returns:
-    """
-    groups: defaultdict = defaultdict(list)
-    for detection in list_dicts:
-        groups[detection[key]].append(detection)
-    return groups
-
-def recall_precision(gt: np.ndarray, predictions: np.ndarray, iou_threshold: float) -> Tuple[np.array, np.array, np.array]:
-    num_gts = len(gt)
-    image_gts = group_by_key(gt, "image_id")
-
-    image_gt_boxes = {
-        img_id: np.array([[float(z) for z in b["bbox"]] for b in boxes]) for img_id, boxes in image_gts.items()
-    }
-    image_gt_checked = {img_id: np.zeros(len(boxes)) for img_id, boxes in image_gts.items()}
-
-    predictions = sorted(predictions, key=lambda x: x["score"], reverse=True)
-
-    # go down dets and mark TPs and FPs
-    num_predictions = len(predictions)
-    tp = np.zeros(num_predictions)
-    fp = np.zeros(num_predictions)
-
-    for prediction_index, prediction in enumerate(predictions):
-        box = prediction["bbox"]
-
-        max_overlap = -np.inf
-        jmax = -1
-
-        try:
-            gt_boxes = image_gt_boxes[prediction["image_id"]]  # gt_boxes per image
-            gt_checked = image_gt_checked[prediction["image_id"]]  # gt flags per image
-        except KeyError:
-            gt_boxes = []
-            gt_checked = None
-
-        if len(gt_boxes) > 0:
-            overlaps = get_overlaps(gt_boxes, box)
-
-            max_overlap = np.max(overlaps)
-            jmax = np.argmax(overlaps)
-
-        if max_overlap >= iou_threshold:
-            if gt_checked[jmax] == 0:
-                tp[prediction_index] = 1.0
-                gt_checked[jmax] = 1
-            else:
-                fp[prediction_index] = 1.0
-        else:
-            fp[prediction_index] = 1.0
-
-    # compute precision recall
-    fp = np.cumsum(fp, axis=0)
-    tp = np.cumsum(tp, axis=0)
-
-    recalls = tp / float(num_gts)
-
-    # avoid divide by zero in case the first detection matches a difficult ground truth
-    precisions = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
-
-    ap = get_ap(recalls, precisions)
-
-    return recalls, precisions, ap
+    map_5    = np.array(map_5).mean()
+    map_5_95 = np.array(map_5_95).mean()
+    
+    return map_5, map_5_95

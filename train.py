@@ -13,6 +13,7 @@ from utils.mlops_tool import use_data_wandb
 from model.model import RetinaFace, forward
 from utils.data_tool import create_exp_dir
 from model.multibox_loss import MultiBoxLoss
+from model.metric import calculate_map, calculate_running_map
 from utils.dataset import WiderFaceDataset, detection_collate
 
 def parse_args():
@@ -21,6 +22,7 @@ def parse_args():
     parser.add_argument('--run', type=str, default=RUN_NAME, help="run name")
     parser.add_argument('--epoch', type=int, default=EPOCHS, help="number of epoch")
     parser.add_argument('--model', type=str, default='resnet50', help='select model')
+    parser.add_argument('--freeze', action='store_true', help="freeze model backbone")
     parser.add_argument('--weight', type=str, default=None, help='path to pretrained weight')
     parser.add_argument('--weight_decay', type=int, default=WEIGHT_DECAY, help="weight decay of optimizer")
     parser.add_argument('--momentum', type=int, default=MOMENTUM, help="momemtum of optimizer")
@@ -43,7 +45,7 @@ def train(model, anchors, trainloader, optimizer, loss_function, device='cpu'):
         targets = [annos.to(device) for annos in targets]
 
         # forward
-        loss, loss_l, loss_c, loss_landm = forward(model, input, targets, anchors, loss_function)
+        loss, loss_l, loss_c, loss_landm, predict = forward(model, input, targets, anchors, loss_function)
 
         # metric
         loss_cls += loss_c
@@ -68,7 +70,9 @@ def train(model, anchors, trainloader, optimizer, loss_function, device='cpu'):
 def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
     model.eval()
     loss_cls, loss_box, loss_pts = 0, 0, 0
-    epoch_ap, count_img, count_target = 0, 0, 0
+    count_img, count_target = 0, 0, 0
+    ap_5, ap_5_95 = 0, 0
+
     with torch.no_grad():
         for i, (input, targets) in enumerate(validloader):
             # load data into cuda
@@ -76,12 +80,14 @@ def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
             targets = [annos.to(device) for annos in targets]
 
             # forward
-            loss, loss_l, loss_c, loss_landm = forward(model, input, targets, anchors, loss_function)
+            loss, loss_l, loss_c, loss_landm, predict = forward(model, input, targets, anchors, loss_function)
 
             # metric
             loss_cls += loss_c
             loss_box += loss_l 
             loss_pts += loss_landm
+
+            ap_5, ap_5_95 += calculate_running_map(targets, predict)
 
             # summary
             count_img += input.shape[0]
@@ -92,13 +98,16 @@ def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
     loss_box = loss_box/len(validloader)
     loss_pts = loss_pts/len(validloader)
 
-    epoch_summary = [count_img, count_target]
+    epoch_ap_5 = ap_5/len(validloader)
+    epoch_ap_5_95 = ap_5_95/len(validloader)
 
-    if epoch_ap>best_ap:
+    epoch_summary = [count_img, count_target, epoch_ap_5, epoch_ap_5_95]
+
+    if epoch_ap_5>best_ap:
     # export to onnx + pt
         torch.save(model.state_dict(), os.path.join(save_dir, 'weight.pth'))
 
-    return loss_cls, loss_box, loss_pts, epoch_summary, epoch_ap
+    return loss_cls, loss_box, loss_pts, epoch_summary
 
 if __name__ == '__main__':
     args = parse_args()
@@ -140,7 +149,10 @@ if __name__ == '__main__':
     save_dir = create_exp_dir()
 
     # get model and define loss func, optimizer
-    model = RetinaFace(model_name=args.model, freeze_backbone=True).to(device)
+    model = RetinaFace(model_name=args.model, freeze_backbone=args.freeze).to(device)
+    if args.weight is not None and os.path.isfile(args.weight):
+        checkpoint = torch.load(args.weight)
+        model.load_state_dict(checkpoint)
 
     with torch.no_grad():
         anchors = Anchors(pyramid_levels=model.feature_map).forward().to(device)
@@ -173,22 +185,23 @@ if __name__ == '__main__':
         wandb.log({'loss_cls': loss_cls, 'loss_box': loss_box, 'loss_landmark': loss_pts}, step=epoch)
         print(f'\t{epoch+1}/{epochs}\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{total_loss:.5f}\t\t{(t1-t0):.2f}s')
         
-        # summary
-        loss_box, loss_pts, loss_cls, summary, valid_ap = evaluate(model, anchors, validloader, criterion, best_ap, device)
-        wandb.log({'val.loss_cls': loss_cls, 'val.loss_box': loss_box, 'val.loss_landmark': loss_pts}, step=epoch)
+        # summary [count_img, count_target, epoch_ap_5, epoch_ap_5_95]
+        loss_box, loss_pts, loss_cls, summary = evaluate(model, anchors, validloader, criterion, best_ap, device)
 
         # images, labels, P, R, map_5, map_95
-        # print(f'\tImages\tLabels\t\tP\t\tR\t\tmAP@.5\t\tmAP.5.95')
-        # print(f'\t{summary[0]}\t{summary[1]}\t\t{P}\t\t{R}\t\t{map_5}\t\t{map_95}')
+        print(f'\tImages\tLabels\t\tmAP@.5\t\tmAP.5.95')
+        print(f'\t{summary[0]}\t{summary[1]}\t\t{summary[2]}\t\t{summary[3]}')
     
+        wandb.log({'val.loss_cls': loss_cls, 'val.loss_box': loss_box, 'val.loss_landmark': loss_pts}, step=epoch)
+        wandb.log({'metric.map@.5': summary[2], 'metric.map@.5:.95': summary[3]}, step=epoch)
         wandb.log({"lr": scheduler.get_last_lr()[0]}, step=epoch)
         
         # decrease lr
         scheduler.step()
 
         # Wandb summary
-        if valid_ap > best_ap:
-            best_ap = valid_ap
+        if summary[2] > best_ap:
+            best_ap = summary[2] 
             wandb.run.summary["best_accuracy"] = best_ap
 
     if not args.tuning:
