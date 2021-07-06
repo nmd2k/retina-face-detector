@@ -21,6 +21,7 @@ class WiderFaceDataset(Dataset):
     def __init__(self, root_path, is_train=True):
         self.ids       = []
         self.transform = WiderFacePreprocess()
+        self.is_train  = is_train
 
         if is_train: 
             self.path = os.path.join(root_path, TRAIN_PATH)
@@ -40,7 +41,11 @@ class WiderFaceDataset(Dataset):
 
         f = open(os.path.join(self.path, 'labels', self.ids[index]+'.txt'), 'r')
         lines = f.readlines()
-        annotations = np.zeros((len(lines), 15))
+
+        if self.is_train:
+            annotations = np.zeros((len(lines), 15))
+        else:
+            annotations = np.zeros((len(lines), 4))
 
         if len(lines) == 0:
             return annotations
@@ -55,17 +60,18 @@ class WiderFaceDataset(Dataset):
             annotations[idx, 2] = line[0] + line[2]     # x2
             annotations[idx, 3] = line[1] + line[3]     # y2
 
-            # landmarks
-            annotations[idx, 4] = line[4]               # l0_x
-            annotations[idx, 5] = line[5]               # l0_y
-            annotations[idx, 6] = line[7]               # l1_x
-            annotations[idx, 7] = line[8]               # l1_y
-            annotations[idx, 8] = line[10]              # l2_x
-            annotations[idx, 9] = line[11]              # l2_y
-            annotations[idx, 10] = line[13]             # l3_x
-            annotations[idx, 11] = line[14]             # l3_y
-            annotations[idx, 12] = line[16]             # l4_x
-            annotations[idx, 13] = line[17]             # l4_y
+            if self.is_train:
+                # landmarks
+                annotations[idx, 4] = line[4]               # l0_x
+                annotations[idx, 5] = line[5]               # l0_y
+                annotations[idx, 6] = line[7]               # l1_x
+                annotations[idx, 7] = line[8]               # l1_y
+                annotations[idx, 8] = line[10]              # l2_x
+                annotations[idx, 9] = line[11]              # l2_y
+                annotations[idx, 10] = line[13]             # l3_x
+                annotations[idx, 11] = line[14]             # l3_y
+                annotations[idx, 12] = line[16]             # l4_x
+                annotations[idx, 13] = line[17]             # l4_y
 
             if (annotations[idx, 4]<0):
                 annotations[idx, 14] = -1
