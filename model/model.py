@@ -61,7 +61,6 @@ class RetinaFace(nn.Module):
             backbone            = MobileNetV1(start_frame=START_FRAME)
             return_feature      = RETURN_MAP_MOBN1
             self.feature_map    = FEATURE_MAP_MOBN1
-            num_fpn             = len(self.feature_map)
             
             if not pretrain_path is None:
                 pretrain_weight = torch.load(pretrain_path)
@@ -76,10 +75,11 @@ class RetinaFace(nn.Module):
             backbone = models.resnet50(pretrained=True)
             return_feature      = RETURN_MAP
             self.feature_map    = FEATURE_MAP
-            num_fpn             = len(self.feature_map)
 
         else:
             print(f'Unable to select {model_name}.')
+
+        num_fpn             = len(self.feature_map)
 
         # frozen pre-trained backbone
         self.body = IntermediateLayerGetter(backbone, return_feature)
@@ -87,6 +87,7 @@ class RetinaFace(nn.Module):
         if freeze_backbone:
             for param in self.body.parameters():
                 param.requires_grad = False
+            print('\tBackbone freezed')
 
         in_channels_list = [IN_CHANNELS*2, IN_CHANNELS*4, IN_CHANNELS*8, IN_CHANNELS*16]
         self.fpn = FPN(in_channels_list=in_channels_list, out_channels=OUT_CHANNELS)
@@ -151,4 +152,4 @@ def forward(model, input, targets, anchors, loss_function):
     loss_l, loss_c, loss_landm = loss_function(predict, anchors, targets)
     loss = 1.3*loss_l + loss_c + loss_landm
 
-    return loss, loss_l.item(), loss_c.item(), loss_landm.item()
+    return loss, loss_l.item(), loss_c.item(), loss_landm.item(), predict.item()

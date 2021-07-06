@@ -117,25 +117,25 @@ class FPN(nn.Module):
         output1 = self.layer_feature_1(input[0])
         output2 = self.layer_feature_2(input[1])
         output3 = self.layer_feature_3(input[2])
-        output4 = self.layer_feature_4(input[4])
-        output5 = self.layer_feature_5(input[4])
+        output4 = self.layer_feature_4(input[3])
+        output5 = self.layer_feature_5(input[3])
 
-        output5 = self.upsample(output5)
-        output4 = self.upsample(output4)
+        # output5 = self.upsample(output5)
+        # output4 = self.upsample(output4)
 
         up4     = F.interpolate(output4, size=[output3.size(2), output3.size(3)], mode="nearest")
         output3 = output3 + up4
-        output3 = self.upsample(output3)
+        # output3 = self.upsample(output3)
         output3 = self.merge(output3)
 
         up3     = F.interpolate(output3, size=[output2.size(2), output2.size(3)], mode="nearest")
         output2 = output2 + up3
-        output2 = self.upsample(output2)
+        # output2 = self.upsample(output2)
         output2 = self.merge(output2)
 
         up2     = F.interpolate(output2, size=[output1.size(2), output1.size(3)], mode="nearest")
         output1 = output1 + up2
-        output1 = self.upsample(output1)
+        # output1 = self.upsample(output1)
         output1 = self.merge(output1)
 
         return [output1, output2, output3, output4, output5]
