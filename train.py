@@ -175,7 +175,7 @@ if __name__ == '__main__':
     for epoch in range(epochs):
         print(f'\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal')
         t0 = time.time()
-        loss_box, loss_pts, loss_cls = train(model, anchors, trainloader, optimizer, criterion, device)
+        loss_cls, loss_box, loss_pts = train(model, anchors, trainloader, optimizer, criterion, device)
         t1 = time.time()
 
         total_loss = loss_box + loss_pts + loss_cls
@@ -185,7 +185,7 @@ if __name__ == '__main__':
         
         # summary [count_img, count_target, epoch_ap_5, epoch_ap_5_95]
         t0 = time.time()
-        loss_box, loss_pts, loss_cls, summary = evaluate(model, anchors, validloader, criterion, best_ap, device)
+        loss_cls, loss_box, loss_pts, summary = evaluate(model, anchors, validloader, criterion, best_ap, device)
         t1 = time.time()
 
         # images, labels, P, R, map_5, map_95
