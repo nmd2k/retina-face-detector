@@ -45,7 +45,7 @@ class WiderFaceDataset(Dataset):
         if self.is_train:
             annotations = np.zeros((len(lines), 15))
         else:
-            annotations = np.zeros((len(lines), 4))
+            annotations = np.zeros((len(lines), 5))
 
         if len(lines) == 0:
             return annotations
@@ -73,10 +73,13 @@ class WiderFaceDataset(Dataset):
                 annotations[idx, 12] = line[16]             # l4_x
                 annotations[idx, 13] = line[17]             # l4_y
 
-            if (annotations[idx, 4]<0):
-                annotations[idx, 14] = -1
+                if (annotations[idx, 4]<0):
+                    annotations[idx, 14] = -1
+                else:
+                    annotations[idx, 14] = 1
+            
             else:
-                annotations[idx, 14] = 1
+                annotations[idx, 5] = 1
 
         if self.transform is not None:
             img, annotations = self.transform(image=img, targets=annotations)
