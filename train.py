@@ -188,10 +188,12 @@ if __name__ == '__main__':
         print(f'\t{epoch+1}/{epochs}\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{total_loss:.5f}\t\t{(t1-t0):.2f}s')
         
         # summary [count_img, count_target, epoch_ap_5, epoch_ap_5_95]
+        t0 = time.time()
         loss_box, loss_pts, loss_cls, summary = evaluate(model, anchors, validloader, criterion, best_ap, device)
+        t1 = time.time()
 
         # images, labels, P, R, map_5, map_95
-        print(f'\tImages\tLabels\tbox\t\tlandmarks\tcls\tmAP@.5\t\tmAP.5.95')
+        print(f'\tImages\tLabels\t\tbox\t\tlandmarks\tcls\tmAP@.5\t\tmAP.5.95')
         # print(f'\t{summary[0]}\t{summary[1]}\t\t{summary[2]}\t\t{summary[3]}')
         print(f'\t{summary[0]}\t{summary[1]}\t\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{(t1-t0):.2f}s')
     
