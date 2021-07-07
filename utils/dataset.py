@@ -3,7 +3,7 @@ import torch
 import wandb
 import numpy as np
 from utils.data_augment import WiderFacePreprocess
-from model.config import TRAIN_PATH, VALID_PATH
+from model.config import INPUT_SIZE, TRAIN_PATH, VALID_PATH
 from torch.utils.data import Dataset
 from torchvision import transforms
 from PIL import Image
@@ -18,9 +18,9 @@ class WiderFaceDataset(Dataset):
                 mentioned in the paper. Only applied on the train split.
     """
 
-    def __init__(self, root_path, is_train=True):
+    def __init__(self, root_path, input_size=INPUT_SIZE, is_train=True):
         self.ids       = []
-        self.transform = WiderFacePreprocess()
+        self.transform = WiderFacePreprocess(image_size=input_size)
         self.is_train  = is_train
 
         if is_train: 

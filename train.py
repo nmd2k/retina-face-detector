@@ -21,6 +21,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train image segmentation')
     parser.add_argument('--run', type=str, default=RUN_NAME, help="run name")
     parser.add_argument('--epoch', type=int, default=EPOCHS, help="number of epoch")
+    parser.add_argument('--image_size', type=int, default=INPUT_SIZE, help='input size')
     parser.add_argument('--model', type=str, default='resnet50', help='select model')
     parser.add_argument('--freeze', action='store_true', help="freeze model backbone")
     parser.add_argument('--weight', type=str, default=None, help='path to pretrained weight')
@@ -120,6 +121,7 @@ if __name__ == '__main__':
         lr              = args.lr,
         batchsize       = args.batchsize,
         startfm         = args.startfm,
+        input_size      = args.image_size
     )
     
     # log experiments to
@@ -136,8 +138,8 @@ if __name__ == '__main__':
     print(f"\tCurrent training device {torch.cuda.get_device_name(device)}")
 
     # get dataloader
-    train_set = WiderFaceDataset(root_path=DATA_PATH, is_train=True)
-    valid_set = WiderFaceDataset(root_path=DATA_PATH, is_train=False)
+    train_set = WiderFaceDataset(root_path=DATA_PATH, input_size=args.image_size, is_train=True)
+    valid_set = WiderFaceDataset(root_path=DATA_PATH, input_size=args.image_size, is_train=False)
     
     print(f"\tNumber of training example: {len(train_set)}\n\tNumber of validation example: {len(valid_set)}")
 
@@ -215,6 +217,6 @@ if __name__ == '__main__':
 
     if not args.tuning:
         trained_weight = wandb.Artifact(args.run, type='WEIGHTS')
-        trained_weight.add_file(os.path.join(save_dir, 'weight.onnx'))
+        # trained_weight.add_file(os.path.join(save_dir, 'weight.onnx'))
         trained_weight.add_file(os.path.join(save_dir, 'weight.pth'))
         wandb.log_artifact(trained_weight)
