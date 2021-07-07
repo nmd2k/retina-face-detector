@@ -1,5 +1,5 @@
 PROJECT             = 'Retina-Face'
-RUN_NAME            = 'demo'
+RUN_NAME            = 'resnet18'
 # DATA config ================
 DATA_PATH           = './data'
 N_CLASSES           = 2
@@ -24,7 +24,7 @@ WEIGHT_DECAY        = 5e-4
 MOMENTUM            = 0.9
 
 IN_CHANNELS         = 32
-OUT_CHANNELS        = 128
+OUT_CHANNELS        = 64
 
 # MobileNetV1
 # FEATURE_MAP_MOBN1   =  {'layer2': 160,

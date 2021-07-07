@@ -3,10 +3,9 @@ import time
 import wandb
 import torch
 import argparse
-import numpy as np
 from torch import optim
 import torch.backends.cudnn as cudnn
-from torch.utils.data import DataLoader, dataloader
+from torch.utils.data import DataLoader
 
 from model.config import *
 from model.anchor import Anchors
@@ -32,7 +31,7 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=LEARNING_RATE, help="init learning rate (default: 0.0001)")
     parser.add_argument('--download', action='store_true', help="download dataset from Wandb Database")
     parser.add_argument('--tuning', action='store_true', help="no plot image for tuning")
-    parser.add_argument('--device', type=int, default=None, help="no plot image for tuning")
+    parser.add_argument('--device', type=int, default=0, help="no plot image for tuning")
 
     args = parser.parse_args()
     return args
@@ -55,7 +54,8 @@ def train(model, anchors, trainloader, optimizer, loss_function, device='cpu'):
         loss_pts += loss_landm
 
         # free after backward
-        torch.cuda.empty_cache()
+        with torch.cuda.device(device):
+            torch.cuda.empty_cache()
     
     # cls = classification; box = box regressionl; pts = landmark regression
     loss_cls = loss_cls/len(trainloader)
@@ -103,9 +103,9 @@ def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
 
     epoch_summary = [count_img, count_target, epoch_ap_5, epoch_ap_5_95]
 
-    if epoch_ap_5>best_ap:
+    # if epoch_ap_5>best_ap:
     # export to onnx + pt
-        torch.save(model.state_dict(), os.path.join(save_dir, 'weight.pth'))
+    torch.save(model.state_dict(), os.path.join(save_dir, 'weight.pth'))
 
     return loss_cls, loss_box, loss_pts, epoch_summary
 
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     device = torch.device("cpu")
 
     if args.device is not None:
-        device = torch.device(args.device if torch.cuda.is_available() else "cpu")
+        device = torch.device(args.device)
     print(f"\tCurrent training device {torch.cuda.get_device_name(device)}")
 
     # get dataloader
@@ -156,6 +156,8 @@ if __name__ == '__main__':
     if args.weight is not None and os.path.isfile(args.weight):
         checkpoint = torch.load(args.weight)
         model.load_state_dict(checkpoint)
+        print(f'\tWeight located in {args.weight} have been loaded')
+
     cudnn.benchmark = True
 
     with torch.no_grad():
@@ -179,7 +181,7 @@ if __name__ == '__main__':
     best_ap = -1
 
     for epoch in range(epochs):
-        print(f'\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal')
+        print(f'\n\tEpoch\tbox\t\tlandmarks\tcls\t\ttotal')
         t0 = time.time()
         loss_cls, loss_box, loss_pts = train(model, anchors, trainloader, optimizer, criterion, device)
         t1 = time.time()
@@ -195,9 +197,9 @@ if __name__ == '__main__':
         t1 = time.time()
 
         # images, labels, P, R, map_5, map_95
-        print(f'\tImages\tLabels\t\tbox\t\tlandmarks\tcls\tmAP@.5\t\tmAP.5.95')
+        print(f'\n\tImages\tLabels\t\tbox\t\tlandmarks\tcls\t\tmAP@.5\t\tmAP.5.95')
         # print(f'\t{summary[0]}\t{summary[1]}\t\t{summary[2]}\t\t{summary[3]}')
-        print(f'\t{summary[0]}\t{summary[1]}\t\t{loss_box:.5f}\t\t{loss_pts:.5f}\t\t{loss_cls:.5f}\t\t{(t1-t0):.2f}s')
+        print(f'\t{summary[0]}\t{summary[1]}\t\t{loss_box:.5f}\t\t{loss_pts:.3f}\t\t{loss_cls:.5f}\t\t{(t1-t0):.2f}s')
     
         wandb.log({'val.loss_cls': loss_cls, 'val.loss_box': loss_box, 'val.loss_landmark': loss_pts}, step=epoch)
         wandb.log({'metric.map@.5': summary[2], 'metric.map@.5:.95': summary[3]}, step=epoch)

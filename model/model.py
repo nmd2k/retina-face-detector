@@ -172,4 +172,7 @@ def forward(model, input, targets, anchors, loss_function, optimizer):
     loss.backward()
     optimizer.step()
 
+    del predict
+    del loss
+
     return loss_l, loss_c, loss_landm
