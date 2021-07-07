@@ -65,7 +65,7 @@ def train(model, anchors, trainloader, optimizer, loss_function, device='cpu'):
 
     return loss_cls, loss_box, loss_pts
 
-def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
+def evaluate(model, anchors, validloader, loss_function, best_box, device='cpu'):
     model.eval()
     loss_cls, loss_box, loss_pts = 0, 0, 0
     count_img, count_target = 0, 0
@@ -104,9 +104,9 @@ def evaluate(model, anchors, validloader, loss_function, best_ap, device='cpu'):
 
     epoch_summary = [count_img, count_target, epoch_ap_5, epoch_ap_5_95]
 
-    # if epoch_ap_5>best_ap:
+    if loss_box>best_box:
     # export to onnx + pt
-    torch.save(model.state_dict(), os.path.join(save_dir, 'weight.pth'))
+        torch.save(model.state_dict(), os.path.join(save_dir, 'weight.pth'))
 
     return loss_cls, loss_box, loss_pts, epoch_summary
 
@@ -195,7 +195,7 @@ if __name__ == '__main__':
         
         # summary [count_img, count_target, epoch_ap_5, epoch_ap_5_95]
         t0 = time.time()
-        loss_cls, loss_box, loss_pts, summary = evaluate(model, anchors, validloader, criterion, best_ap, device)
+        loss_cls, loss_box, loss_pts, summary = evaluate(model, anchors, validloader, criterion, loss_box, device)
         t1 = time.time()
 
         # images, labels, P, R, map_5, map_95
@@ -211,9 +211,9 @@ if __name__ == '__main__':
         scheduler.step()
 
         # Wandb summary
-        if summary[2] > best_ap:
-            best_ap = summary[2] 
-            wandb.run.summary["best_accuracy"] = best_ap
+        # if summary[2] > best_ap:
+        #     best_ap = summary[2] 
+        #     wandb.run.summary["best_accuracy"] = best_ap
 
     if not args.tuning:
         trained_weight = wandb.Artifact(args.run, type='WEIGHTS')
