@@ -35,6 +35,8 @@ An implementation of **RetinaFace: Single-stage Dense Face Localisation in the W
 | P5 (15×15×64)    |   32   |  64, 80.63, 101.59  |               1350              |
 | C6/P6 (8×8×64)   |   64   | 128, 161.26, 203.19 |               384               |
 
+The bounding box are varible size from 8×8 up to 203×203 (this can be a minus because the model is not able to detect face have size bigger than 203×203 in 480×480 image) and 75% anchors box were came from P2.
+
 *Note:* In pratice, I once set number of anchor on P2 up to ~172k boxes. However, I noticed that the model was fail with huge number of false positive prediction.
 
 **Loss function.** Coming soon.
