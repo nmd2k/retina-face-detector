@@ -48,13 +48,13 @@ class LandmarkHead(nn.Module):
         return out.view(out.shape[0], -1, 10)
 
 class RetinaFace(nn.Module):
-    def __init__(self, model_name='resnet50', freeze_backbone=False, pretrain_path=None):
+    def __init__(self, model_name='resnet50', freeze_backbone=False, pretrain_path=None, is_train=True):
         """
         Model RetinaFace for face recognition based on:
         `"RetinaFace: Single-stage Dense Face Localisation in the Wild" <https://arxiv.org/abs/1905.00641>`_.
         """
         super(RetinaFace, self).__init__()
-
+        self.is_train = is_train
         # load backbone
         backbone = None
         if model_name == 'mobilenet0.25':
@@ -148,7 +148,11 @@ class RetinaFace(nn.Module):
         classifications  = torch.cat([self.ClassHead[i](feature) for i, feature in enumerate(features)], dim=1)
         ldm_regressions  = torch.cat([self.LandmarkHead[i](feature) for i, feature in enumerate(features)], dim=1)
 
-        output = (bbox_regressions, classifications, ldm_regressions)
+        if self.is_train:
+            output = (bbox_regressions, classifications, ldm_regressions)
+        else: 
+            output = (bbox_regressions, F.softmax(classifications, dim=-1), ldm_regressions)
+
         return output
 
 def forward(model, input, targets, anchors, loss_function, optimizer):
