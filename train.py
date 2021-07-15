@@ -1,5 +1,6 @@
 import os 
 import time
+from utils.generate import select_device
 import wandb
 import torch
 import argparse
@@ -22,7 +23,7 @@ def parse_args():
     parser.add_argument('--run', type=str, default=RUN_NAME, help="run name")
     parser.add_argument('--epoch', type=int, default=EPOCHS, help="number of epoch")
     parser.add_argument('--image_size', type=int, default=INPUT_SIZE, help='input size')
-    parser.add_argument('--model', type=str, default='resnet50', help='select model')
+    parser.add_argument('--model', type=str, default='resnet18', help='select model')
     parser.add_argument('--freeze', action='store_true', help="freeze model backbone")
     parser.add_argument('--weight', type=str, default=None, help='path to pretrained weight')
     parser.add_argument('--weight_decay', type=int, default=WEIGHT_DECAY, help="weight decay of optimizer")
@@ -32,7 +33,7 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=LEARNING_RATE, help="init learning rate (default: 0.0001)")
     parser.add_argument('--download', action='store_true', help="download dataset from Wandb Database")
     parser.add_argument('--tuning', action='store_true', help="no plot image for tuning")
-    parser.add_argument('--device', type=int, default=0, help="no plot image for tuning")
+    parser.add_argument('--device', type=str, default='', help="no plot image for tuning")
 
     args = parser.parse_args()
     return args
@@ -131,11 +132,7 @@ if __name__ == '__main__':
     use_data_wandb(run=run, data_name=DATASET, download=args.download)
 
     # train on device
-    device = torch.device("cpu")
-
-    if args.device is not None:
-        device = torch.device(args.device)
-    print(f"\tCurrent training device {torch.cuda.get_device_name(device)}")
+    device = select_device(args.device, args.batchsize)
 
     # get dataloader
     train_set = WiderFaceDataset(root_path=DATA_PATH, input_size=args.image_size, is_train=True)

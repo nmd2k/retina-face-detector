@@ -53,8 +53,20 @@ Due to the limitation of resource, the training process was trained on Colab Fre
 
 *Notes:* You can find our (pre-processing) dataset and see training experiment through [Weight&Bias](https://wandb.ai/nmd2000/Retina-Face/).
 
-# Usage
-Coming soon
+# Training
+## Select model
+While my MobileNet.25 doesn't have any pre-train weight, I encourage to use a pre-trained Resnet (18, 34, 50, 152) by calling e.g. `--model resnet18` when training
+
+## Trigger training
+Train a RetinaFace on WIDER FACE by specifying batch-size, pretained weight, epoch, trigger download pre-processed dataset from Wandb database, ...
+
+```
+# train RetinaFace on WIDER FACE with resnet18 as backbone
+$ python train.py --image_size 640 --batchsize 8 --epochs 5 --model resnet18 --download --device 0
+                                   --batchsize 16           --model resnet34
+                                   --batchsize 32           --model resnet50
+```
+
 
 # Reference
 <a id="1">[1]</a> Jiankang Deng **andothers**. “Retinaface: Single-stage dense face localisation in the wild”.**in**: arXiv preprint arXiv:1905.00641 (2019).
